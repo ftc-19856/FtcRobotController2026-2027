@@ -38,6 +38,11 @@ public class StarterTeleOp extends OpMode {
         backLeftMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
         frontLeftMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
 
+        frontLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        backLeftMotor.setDirection(DcMotorEx.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
+
         telemetry.addData("Status:", "Initialized");
         telemetry.update();
     }
@@ -45,18 +50,17 @@ public class StarterTeleOp extends OpMode {
     @Override
     public void loop() {
         telemetry.addData("Status", "Running");
-        // Get joystick inputs
-        double y = -gamepad1.left_stick_y;   // Forward/backward
-        double x = gamepad1.left_stick_x;    // Strafe
-        double rx = gamepad1.right_stick_x;  // Rotation
 
-        // Mecanum drive calculations
-        double frontLeftPower  = y + x + rx;
-        double backLeftPower   = y - x + rx;
+        double y = -gamepad1.left_stick_y;  // Forward / backward
+        double x = gamepad1.left_stick_x;   // Strafe left / right
+        double rx = gamepad1.right_stick_x; // Rotate
+
+        double frontLeftPower = y + x + rx;
+        double backLeftPower = y - x + rx;
         double frontRightPower = y - x - rx;
-        double backRightPower  = y + x - rx;
+        double backRightPower = y + x - rx;
 
-        // Normalize powers so the highest magnitude is 1.0
+        // Normalize motor powers
         double max = Math.max(
                 1.0,
                 Math.max(
@@ -76,19 +80,15 @@ public class StarterTeleOp extends OpMode {
         frontRightPower /= max;
         backRightPower /= max;
 
-        // Set motor powers
         frontLeftMotor.setPower(frontLeftPower);
         backLeftMotor.setPower(backLeftPower);
         frontRightMotor.setPower(frontRightPower);
         backRightMotor.setPower(backRightPower);
 
-        // Telemetry
-        telemetry.addData("FL Power", frontLeftPower);
-        telemetry.addData("BL Power", backLeftPower);
-        telemetry.addData("FR Power", frontRightPower);
-        telemetry.addData("BR Power", backRightPower);
+        telemetry.addData("FL", frontLeftPower);
+        telemetry.addData("BL", backLeftPower);
+        telemetry.addData("FR", frontRightPower);
+        telemetry.addData("BR", backRightPower);
         telemetry.update();
-
-
     }
 }
