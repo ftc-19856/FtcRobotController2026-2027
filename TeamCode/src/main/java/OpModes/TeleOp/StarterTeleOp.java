@@ -1,5 +1,6 @@
 package OpModes.TeleOp;
 
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -21,7 +22,7 @@ public class StarterTeleOp extends OpMode {
 
     @Override
     public void init() {
-        imu = hardwareMap.get(IMU.class, "pinpoint");
+        imu = hardwareMap.get(IMU.class, "imu");
         frontLeftMotor = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
         backLeftMotor = hardwareMap.get(DcMotorEx.class, "backLeftMotor");
         frontRightMotor = hardwareMap.get(DcMotorEx.class, "frontRightMotor");
