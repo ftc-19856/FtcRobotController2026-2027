@@ -12,7 +12,6 @@ import Util.Vector2;
 
 @TeleOp(name="StarterTeleOp", group="TeleOp")
 public class StarterTeleOp extends OpMode {
-    Drive drive;
     DcMotorEx frontLeftMotor;
     DcMotorEx backLeftMotor;
     DcMotorEx frontRightMotor;
@@ -28,7 +27,6 @@ public class StarterTeleOp extends OpMode {
         frontRightMotor = hardwareMap.get(DcMotorEx.class, "frontRightMotor");
         backRightMotor = hardwareMap.get(DcMotorEx.class, "backRightMotor");
 
-        drive = new Drive(frontLeftMotor, frontRightMotor, backLeftMotor, backRightMotor, imu);
 
         backRightMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
         frontRightMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
@@ -47,11 +45,50 @@ public class StarterTeleOp extends OpMode {
     @Override
     public void loop() {
         telemetry.addData("Status", "Running");
+        // Get joystick inputs
+        double y = -gamepad1.left_stick_y;   // Forward/backward
+        double x = gamepad1.left_stick_x;    // Strafe
+        double rx = gamepad1.right_stick_x;  // Rotation
 
+        // Mecanum drive calculations
+        double frontLeftPower  = y + x + rx;
+        double backLeftPower   = y - x + rx;
+        double frontRightPower = y - x - rx;
+        double backRightPower  = y + x - rx;
 
-        Vector2 driveDirection = new Vector2(gamepad1.left_stick_x, gamepad1.left_stick_y);
-        float driveRotation = gamepad1.right_stick_x;
-        drive.moveInDirection(driveDirection, driveRotation, 1.0f, telemetry);
+        // Normalize powers so the highest magnitude is 1.0
+        double max = Math.max(
+                1.0,
+                Math.max(
+                        Math.abs(frontLeftPower),
+                        Math.max(
+                                Math.abs(backLeftPower),
+                                Math.max(
+                                        Math.abs(frontRightPower),
+                                        Math.abs(backRightPower)
+                                )
+                        )
+                )
+        );
+
+        frontLeftPower /= max;
+        backLeftPower /= max;
+        frontRightPower /= max;
+        backRightPower /= max;
+
+        // Set motor powers
+        frontLeftMotor.setPower(frontLeftPower);
+        backLeftMotor.setPower(backLeftPower);
+        frontRightMotor.setPower(frontRightPower);
+        backRightMotor.setPower(backRightPower);
+
+        // Telemetry
+        telemetry.addData("FL Power", frontLeftPower);
+        telemetry.addData("BL Power", backLeftPower);
+        telemetry.addData("FR Power", frontRightPower);
+        telemetry.addData("BR Power", backRightPower);
+        telemetry.update();
+
 
     }
 }
