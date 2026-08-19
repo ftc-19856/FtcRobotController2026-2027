@@ -101,7 +101,10 @@ public class StarterTeleOp extends OpMode {
 
         intakeToggle.update(gamepad1.a);
         if (intakeToggle.getState()){
-            intake.setPower(-.5);
+            intake.setPower(.5);
+        }
+        else {
+            intake.setPower(0);
         }
     }
 }
