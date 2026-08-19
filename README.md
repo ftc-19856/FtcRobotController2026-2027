@@ -615,7 +615,7 @@ This is a bug fix only release to address the following four issues.
 * Allows disabling bluetooth radio from inspection screen
 * Improves warning messages when I2C devices are not responding
 * Adds support for controlling the RGB LED present on PS4/Etpark gamepads from OpModes
-* Removes legacy Pushbot references from OpMode samples.  Renames "Pushbot" samples to "Robot".  Motor directions reversed to be compatible with "direct Drive" drive train.
+* Removes legacy Pushbot references from OpMode samples.  Renames "Pushbot" samples to "Robot".  Motor directions reversed to be compatible with "direct Components.Drive" drive train.
 
 
 ### Bug fixes
