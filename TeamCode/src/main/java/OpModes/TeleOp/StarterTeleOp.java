@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import Components.Drive;
+import Components.Toggle;
 import Util.Vector2;
 
 @TeleOp(name="StarterTeleOp", group="TeleOp")
@@ -18,6 +19,10 @@ public class StarterTeleOp extends OpMode {
     DcMotorEx backRightMotor;
     IMU imu;
 
+    DcMotorEx intake;
+
+    Toggle intakeToggle;
+
 
     @Override
     public void init() {
@@ -26,6 +31,9 @@ public class StarterTeleOp extends OpMode {
         backLeftMotor = hardwareMap.get(DcMotorEx.class, "backLeftMotor");
         frontRightMotor = hardwareMap.get(DcMotorEx.class, "frontRightMotor");
         backRightMotor = hardwareMap.get(DcMotorEx.class, "backRightMotor");
+        intake = hardwareMap.get(DcMotorEx.class, "intake");
+
+        intakeToggle = new Toggle(false);
 
 
         backRightMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
@@ -90,5 +98,10 @@ public class StarterTeleOp extends OpMode {
         telemetry.addData("FR", frontRightPower);
         telemetry.addData("BR", backRightPower);
         telemetry.update();
+
+        intakeToggle.update(gamepad1.a);
+        if (intakeToggle.getState()){
+            intake.setPower(-.5);
+        }
     }
 }
