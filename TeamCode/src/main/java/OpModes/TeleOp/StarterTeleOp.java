@@ -31,7 +31,12 @@ public class StarterTeleOp extends OpMode {
         backLeftMotor = hardwareMap.get(DcMotorEx.class, "backLeftMotor");
         frontRightMotor = hardwareMap.get(DcMotorEx.class, "frontRightMotor");
         backRightMotor = hardwareMap.get(DcMotorEx.class, "backRightMotor");
-        intake = hardwareMap.get(DcMotorEx.class, "intake");
+        try {
+            intake = hardwareMap.get(DcMotorEx.class, "intake");
+        } catch (IllegalArgumentException e) {
+            telemetry.addData("Warning", "intake motor not found in config, skipping");
+            intake = null;
+        }
 
         intakeToggle = new Toggle(false);
 
@@ -100,11 +105,8 @@ public class StarterTeleOp extends OpMode {
         telemetry.update();
 
         intakeToggle.update(gamepad1.a);
-        if (intakeToggle.getState()){
-            intake.setPower(1);
-        }
-        else {
-            intake.setPower(0);
+        if (intake != null) {
+            intake.setPower(intakeToggle.getState() ? 1 : 0);
         }
     }
 }
