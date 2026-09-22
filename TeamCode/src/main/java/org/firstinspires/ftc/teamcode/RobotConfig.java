@@ -9,6 +9,8 @@ public final class RobotConfig {
     public static final String INTAKE_MOTOR = "intake";
     public static final String IMU = "imu";
     public static final String PINPOINT = "pinpoint";
+    public static final String LIMELIGHT = "limelight";
+    public static final int POLLEN_PIPELINE_INDEX = 0;
 
     // X pod: positive is left of the tracking point.
     public static final double PINPOINT_X_OFFSET_INCHES = -0.752;
