@@ -42,6 +42,15 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double OVERSHOOT_POWER = 0.2;
     private static final double OVERSHOOT_TIMEOUT_SECONDS = 3.0;
 
+    // The Limelight is mounted 46 mm left of the robot's true centerline (measured
+    // standing behind the robot, facing forward, intake side toward the viewer). Centering
+    // the target on camera (tx = 0) aligns the TARGET with the CAMERA's sightline, which
+    // sits 46 mm left of center - so the ball ends up 46 mm left of the intake's centerline
+    // unless corrected. Strafe right by that amount to bring it onto center.
+    private static final double CAMERA_LEFT_OFFSET_INCHES = 46.0 / 25.4;
+    private static final double STRAFE_CORRECTION_POWER = 0.2;
+    private static final double STRAFE_CORRECTION_TIMEOUT_SECONDS = 2.0;
+
     private static final double POSITION_TOLERANCE_INCHES = 1.5;
     private static final double RETURN_MAX_DRIVE_POWER = 0.5;
     private static final double RETURN_MIN_DRIVE_POWER = 0.15;
@@ -61,11 +70,14 @@ public final class SearchIntakeAndReturn extends OpMode {
     private double lastSeenTa;
     private double overshootStartForward;
     private double overshootStartRight;
+    private double strafeCorrectionStartForward;
+    private double strafeCorrectionStartRight;
 
     private enum State {
         SEARCH,
         APPROACH,
         OVERSHOOT,
+        STRAFE_CORRECTION,
         COLLECT,
         RETURN_TO_START,
         DONE
@@ -138,9 +150,19 @@ public final class SearchIntakeAndReturn extends OpMode {
                 double traveled = Math.hypot(
                         forward - overshootStartForward, right - overshootStartRight);
                 if (traveled >= OVERSHOOT_DISTANCE_INCHES || timedOut(OVERSHOOT_TIMEOUT_SECONDS)) {
-                    enter(State.COLLECT);
+                    enterStrafeCorrection(forward, right);
                 } else {
                     drive.driveRobotCentric(OVERSHOOT_POWER, 0, 0);
+                }
+                break;
+
+            case STRAFE_CORRECTION:
+                double strafed = Math.hypot(
+                        forward - strafeCorrectionStartForward, right - strafeCorrectionStartRight);
+                if (strafed >= CAMERA_LEFT_OFFSET_INCHES || timedOut(STRAFE_CORRECTION_TIMEOUT_SECONDS)) {
+                    enter(State.COLLECT);
+                } else {
+                    drive.driveRobotCentric(0, STRAFE_CORRECTION_POWER, 0);
                 }
                 break;
 
@@ -220,6 +242,12 @@ public final class SearchIntakeAndReturn extends OpMode {
         overshootStartForward = forward;
         overshootStartRight = right;
         enter(State.OVERSHOOT);
+    }
+
+    private void enterStrafeCorrection(double forward, double right) {
+        strafeCorrectionStartForward = forward;
+        strafeCorrectionStartRight = right;
+        enter(State.STRAFE_CORRECTION);
     }
 
     private static double clip(double value, double minimum, double maximum) {
