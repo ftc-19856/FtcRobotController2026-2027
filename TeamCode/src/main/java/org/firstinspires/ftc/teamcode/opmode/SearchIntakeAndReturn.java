@@ -14,6 +14,9 @@ import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 // Spins in place searching with the Limelight ("pollen" pipeline) until it finds a
 // target, turns to face and drives up to it while steering off Limelight tx/ta, runs
 // the intake, then returns to the start point using the calibrated Pinpoint odometry.
+// The Limelight and intake are co-located on the robot's front, so reaching "close
+// enough" on camera means the ball is already at the intake - no separate front-to-back
+// overshoot is needed, just the small lateral correction for the camera's offset.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final double SEARCH_SPIN_POWER = 0.25;
@@ -32,15 +35,6 @@ public final class SearchIntakeAndReturn extends OpMode {
     // the close-enough threshold, treat it as "got too close for the camera to see"
     // rather than "lost the ball" - common right before contact.
     private static final double LOST_TARGET_ASSUME_ARRIVED_FRACTION = 0.5;
-
-    // The Limelight is front-mounted and the intake is back-mounted, so reaching
-    // "close enough" on camera only means the ball is under the front of the robot,
-    // not at the intake. Keep driving straight past that point so the ball ends up
-    // at the back where the intake actually is - also serves as a safety margin.
-    // Placeholder - measure the real camera-to-intake distance along the robot.
-    private static final double OVERSHOOT_DISTANCE_INCHES = 8.0;
-    private static final double OVERSHOOT_POWER = 0.2;
-    private static final double OVERSHOOT_TIMEOUT_SECONDS = 3.0;
 
     // The Limelight is mounted 46 mm left of the robot's true centerline (measured
     // standing behind the robot, facing forward, intake side toward the viewer). Centering
@@ -68,15 +62,12 @@ public final class SearchIntakeAndReturn extends OpMode {
     private DcMotorEx intake;
     private State state;
     private double lastSeenTa;
-    private double overshootStartForward;
-    private double overshootStartRight;
     private double strafeCorrectionStartForward;
     private double strafeCorrectionStartRight;
 
     private enum State {
         SEARCH,
         APPROACH,
-        OVERSHOOT,
         STRAFE_CORRECTION,
         COLLECT,
         RETURN_TO_START,
@@ -129,30 +120,20 @@ public final class SearchIntakeAndReturn extends OpMode {
 
             case APPROACH:
                 if (hasTarget && result.getTa() >= TARGET_AREA_CLOSE_ENOUGH) {
-                    enterOvershoot(forward, right);
+                    enterStrafeCorrection(forward, right);
                 } else if (hasTarget) {
                     double turn = turnPowerFor(result.getTx());
                     drive.driveRobotCentric(APPROACH_FORWARD_POWER, 0, turn);
                     if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
-                        enterOvershoot(forward, right);
+                        enterStrafeCorrection(forward, right);
                     }
                 } else if (lastSeenTa >= TARGET_AREA_CLOSE_ENOUGH * LOST_TARGET_ASSUME_ARRIVED_FRACTION) {
                     // Likely just too close for the camera to see anymore.
-                    enterOvershoot(forward, right);
+                    enterStrafeCorrection(forward, right);
                 } else if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
                     enter(State.SEARCH);
                 } else {
                     drive.stop();
-                }
-                break;
-
-            case OVERSHOOT:
-                double traveled = Math.hypot(
-                        forward - overshootStartForward, right - overshootStartRight);
-                if (traveled >= OVERSHOOT_DISTANCE_INCHES || timedOut(OVERSHOOT_TIMEOUT_SECONDS)) {
-                    enterStrafeCorrection(forward, right);
-                } else {
-                    drive.driveRobotCentric(OVERSHOOT_POWER, 0, 0);
                 }
                 break;
 
@@ -236,12 +217,6 @@ public final class SearchIntakeAndReturn extends OpMode {
         drive.stop();
         state = nextState;
         stateTimer.reset();
-    }
-
-    private void enterOvershoot(double forward, double right) {
-        overshootStartForward = forward;
-        overshootStartRight = right;
-        enter(State.OVERSHOOT);
     }
 
     private void enterStrafeCorrection(double forward, double right) {
