@@ -14,9 +14,10 @@ import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 // Spins in place searching with the Limelight ("pollen" pipeline) until it finds a
 // target, turns to face and drives up to it while steering off Limelight tx/ta, runs
 // the intake, then returns to the start point using the calibrated Pinpoint odometry.
-// The Limelight is mounted centered on the same (front) side as the intake, so reaching
-// "close enough" on camera means the ball is already at the intake - no turning around,
-// overshoot, or lateral correction needed.
+// The Limelight is mounted on the same (front) side as the intake, so reaching "close
+// enough" on camera means the ball is already at the intake - no turning around or
+// overshoot needed. It's measured 0.4in right of center, so a small strafe-left
+// correction brings the ball onto the intake's true centerline.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final double SEARCH_SPIN_POWER = 0.25;
@@ -36,6 +37,13 @@ public final class SearchIntakeAndReturn extends OpMode {
     // rather than "lost the ball" - common right before contact.
     private static final double LOST_TARGET_ASSUME_ARRIVED_FRACTION = 0.5;
 
+    // Centering the target on camera (tx = 0) aligns it with the camera's sightline,
+    // which is 0.4in right of the robot's true centerline - so the ball ends up 0.4in
+    // right of the intake's centerline unless corrected. Strafe left by that amount.
+    private static final double CAMERA_RIGHT_OFFSET_INCHES = 0.4;
+    private static final double STRAFE_CORRECTION_POWER = 0.15;
+    private static final double STRAFE_CORRECTION_TIMEOUT_SECONDS = 1.5;
+
     private static final double POSITION_TOLERANCE_INCHES = 1.5;
     private static final double RETURN_MAX_DRIVE_POWER = 0.5;
     private static final double RETURN_MIN_DRIVE_POWER = 0.15;
@@ -53,10 +61,13 @@ public final class SearchIntakeAndReturn extends OpMode {
     private DcMotorEx intake;
     private State state;
     private double lastSeenTa;
+    private double strafeCorrectionStartForward;
+    private double strafeCorrectionStartRight;
 
     private enum State {
         SEARCH,
         APPROACH,
+        STRAFE_CORRECTION,
         COLLECT,
         RETURN_TO_START,
         DONE
@@ -108,20 +119,30 @@ public final class SearchIntakeAndReturn extends OpMode {
 
             case APPROACH:
                 if (hasTarget && result.getTa() >= TARGET_AREA_CLOSE_ENOUGH) {
-                    enter(State.COLLECT);
+                    enterStrafeCorrection(forward, right);
                 } else if (hasTarget) {
                     double turn = turnPowerFor(result.getTx());
                     drive.driveRobotCentric(APPROACH_FORWARD_POWER, 0, turn);
                     if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
-                        enter(State.COLLECT);
+                        enterStrafeCorrection(forward, right);
                     }
                 } else if (lastSeenTa >= TARGET_AREA_CLOSE_ENOUGH * LOST_TARGET_ASSUME_ARRIVED_FRACTION) {
                     // Likely just too close for the camera to see anymore.
-                    enter(State.COLLECT);
+                    enterStrafeCorrection(forward, right);
                 } else if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
                     enter(State.SEARCH);
                 } else {
                     drive.stop();
+                }
+                break;
+
+            case STRAFE_CORRECTION:
+                double strafed = Math.hypot(
+                        forward - strafeCorrectionStartForward, right - strafeCorrectionStartRight);
+                if (strafed >= CAMERA_RIGHT_OFFSET_INCHES || timedOut(STRAFE_CORRECTION_TIMEOUT_SECONDS)) {
+                    enter(State.COLLECT);
+                } else {
+                    drive.driveRobotCentric(0, -STRAFE_CORRECTION_POWER, 0);
                 }
                 break;
 
@@ -195,6 +216,12 @@ public final class SearchIntakeAndReturn extends OpMode {
         drive.stop();
         state = nextState;
         stateTimer.reset();
+    }
+
+    private void enterStrafeCorrection(double forward, double right) {
+        strafeCorrectionStartForward = forward;
+        strafeCorrectionStartRight = right;
+        enter(State.STRAFE_CORRECTION);
     }
 
     private static double clip(double value, double minimum, double maximum) {
