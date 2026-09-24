@@ -26,7 +26,10 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double TURN_KP = 0.015;
     private static final double MIN_TURN_POWER = 0.1;
     private static final double MAX_TURN_POWER = 0.4;
-    private static final double APPROACH_FORWARD_POWER = 0.3;
+    // While the target is off by more than this, turn in place only - mixing a large
+    // turn with forward power was canceling out on some wheels and barely moving.
+    private static final double ALIGN_TOLERANCE_DEGREES = 10.0;
+    private static final double APPROACH_FORWARD_POWER = 0.5;
     // Limelight target area (percent of image) at which the ball is considered close
     // enough to intake. Placeholder - tune on the real robot for the camera's mount
     // height/angle and the ball's real size.
@@ -122,7 +125,8 @@ public final class SearchIntakeAndReturn extends OpMode {
                     enterStrafeCorrection(forward, right);
                 } else if (hasTarget) {
                     double turn = turnPowerFor(result.getTx());
-                    drive.driveRobotCentric(APPROACH_FORWARD_POWER, 0, turn);
+                    boolean aligned = Math.abs(result.getTx()) <= ALIGN_TOLERANCE_DEGREES;
+                    drive.driveRobotCentric(aligned ? APPROACH_FORWARD_POWER : 0, 0, turn);
                     if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
                         enterStrafeCorrection(forward, right);
                     }
