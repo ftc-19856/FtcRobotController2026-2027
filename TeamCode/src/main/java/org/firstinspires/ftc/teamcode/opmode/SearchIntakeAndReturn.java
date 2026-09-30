@@ -12,12 +12,14 @@ import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 
 // Spins in place searching with the Limelight ("pollen" pipeline) until it finds a
-// target, turns to face and drives up to it while steering off Limelight tx/ta, runs
-// the intake, then returns to the start point using the calibrated Pinpoint odometry.
-// The Limelight is mounted on the same (front) side as the intake, so reaching "close
-// enough" on camera means the ball is already at the intake - no turning around or
-// overshoot needed. It's measured 0.4in right of center, so a small strafe-left
-// correction brings the ball onto the intake's true centerline.
+// target, turns in place to align with it, then LOCKS that heading and drives straight
+// on odometry heading-hold rather than continuing to steer off live (and noisy) tx
+// every loop - runs the intake, then returns to the start point using the calibrated
+// Pinpoint odometry. The Limelight is mounted on the same (front) side as the intake,
+// so reaching "close enough" on camera (by target area) means the ball is already at
+// the intake - no turning around or overshoot needed. It's measured 0.4in right of
+// center, so a small strafe-left correction brings the ball onto the intake's true
+// centerline.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final double SEARCH_SPIN_POWER = 0.25;
@@ -26,15 +28,21 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double TURN_KP = 0.015;
     private static final double MIN_TURN_POWER = 0.1;
     private static final double MAX_TURN_POWER = 0.4;
-    // While the target is off by more than this, turn in place only - mixing a large
-    // turn with forward power was canceling out on some wheels and barely moving.
-    private static final double ALIGN_TOLERANCE_DEGREES = 10.0;
-    private static final double APPROACH_FORWARD_POWER = 0.5;
+    // How close tx needs to be to call the robot aligned and lock in a heading.
+    private static final double ALIGN_TOLERANCE_DEGREES = 5.0;
+    private static final double ALIGN_TIMEOUT_SECONDS = 3.0;
+
+    // Once aligned, drive straight on the locked heading instead of continuing to
+    // steer off live tx every loop - constantly re-steering off a noisy tx reading
+    // was fighting itself and the robot was barely moving forward at all.
+    private static final double DRIVE_FORWARD_POWER = 0.5;
+    private static final double DRIVE_HEADING_KP = 1.5;
+    private static final double DRIVE_MAX_TURN_POWER = 0.25;
+    private static final double DRIVE_TIMEOUT_SECONDS = 6.0;
     // Limelight target area (percent of image) at which the ball is considered close
     // enough to intake. Placeholder - tune on the real robot for the camera's mount
     // height/angle and the ball's real size.
     private static final double TARGET_AREA_CLOSE_ENOUGH = 8.0;
-    private static final double APPROACH_TIMEOUT_SECONDS = 6.0;
     // If the target is lost from view after its area was at least this fraction of
     // the close-enough threshold, treat it as "got too close for the camera to see"
     // rather than "lost the ball" - common right before contact.
@@ -64,12 +72,14 @@ public final class SearchIntakeAndReturn extends OpMode {
     private DcMotorEx intake;
     private State state;
     private double lastSeenTa;
+    private double lockedHeadingRadians;
     private double strafeCorrectionStartForward;
     private double strafeCorrectionStartRight;
 
     private enum State {
         SEARCH,
-        APPROACH,
+        ALIGN,
+        DRIVE,
         STRAFE_CORRECTION,
         COLLECT,
         RETURN_TO_START,
@@ -111,7 +121,7 @@ public final class SearchIntakeAndReturn extends OpMode {
             case SEARCH:
                 if (hasTarget) {
                     intake.setPower(1);
-                    enter(State.APPROACH);
+                    enter(State.ALIGN);
                 } else if (timedOut(SEARCH_TIMEOUT_SECONDS)) {
                     telemetry.addLine("Search timed out; no target found");
                     enter(State.DONE);
@@ -120,23 +130,38 @@ public final class SearchIntakeAndReturn extends OpMode {
                 }
                 break;
 
-            case APPROACH:
-                if (hasTarget && result.getTa() >= TARGET_AREA_CLOSE_ENOUGH) {
-                    enterStrafeCorrection(forward, right);
+            case ALIGN:
+                if (hasTarget && Math.abs(result.getTx()) <= ALIGN_TOLERANCE_DEGREES) {
+                    lockedHeadingRadians = odometry.getHeadingRadians();
+                    enter(State.DRIVE);
                 } else if (hasTarget) {
-                    double turn = turnPowerFor(result.getTx());
-                    boolean aligned = Math.abs(result.getTx()) <= ALIGN_TOLERANCE_DEGREES;
-                    drive.driveRobotCentric(aligned ? APPROACH_FORWARD_POWER : 0, 0, turn);
-                    if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
-                        enterStrafeCorrection(forward, right);
+                    drive.driveRobotCentric(0, 0, turnPowerFor(result.getTx()));
+                    if (timedOut(ALIGN_TIMEOUT_SECONDS)) {
+                        // Close enough - lock in whatever heading we've got and go.
+                        lockedHeadingRadians = odometry.getHeadingRadians();
+                        enter(State.DRIVE);
                     }
-                } else if (lastSeenTa >= TARGET_AREA_CLOSE_ENOUGH * LOST_TARGET_ASSUME_ARRIVED_FRACTION) {
-                    // Likely just too close for the camera to see anymore.
-                    enterStrafeCorrection(forward, right);
-                } else if (timedOut(APPROACH_TIMEOUT_SECONDS)) {
+                } else if (timedOut(ALIGN_TIMEOUT_SECONDS)) {
                     enter(State.SEARCH);
                 } else {
                     drive.stop();
+                }
+                break;
+
+            case DRIVE:
+                if (hasTarget && result.getTa() >= TARGET_AREA_CLOSE_ENOUGH) {
+                    enterStrafeCorrection(forward, right);
+                } else if (lastSeenTa >= TARGET_AREA_CLOSE_ENOUGH * LOST_TARGET_ASSUME_ARRIVED_FRACTION) {
+                    // Likely just too close for the camera to see anymore.
+                    enterStrafeCorrection(forward, right);
+                } else if (timedOut(DRIVE_TIMEOUT_SECONDS)) {
+                    enterStrafeCorrection(forward, right);
+                } else {
+                    double heading = odometry.getHeadingRadians();
+                    double headingError = normalizeAngle(lockedHeadingRadians - heading);
+                    double turn = clip(headingError * DRIVE_HEADING_KP,
+                            -DRIVE_MAX_TURN_POWER, DRIVE_MAX_TURN_POWER);
+                    drive.driveRobotCentric(DRIVE_FORWARD_POWER, 0, turn);
                 }
                 break;
 
@@ -226,6 +251,17 @@ public final class SearchIntakeAndReturn extends OpMode {
         strafeCorrectionStartForward = forward;
         strafeCorrectionStartRight = right;
         enter(State.STRAFE_CORRECTION);
+    }
+
+    private static double normalizeAngle(double radians) {
+        double normalized = radians;
+        while (normalized > Math.PI) {
+            normalized -= 2 * Math.PI;
+        }
+        while (normalized <= -Math.PI) {
+            normalized += 2 * Math.PI;
+        }
+        return normalized;
     }
 
     private static double clip(double value, double minimum, double maximum) {
