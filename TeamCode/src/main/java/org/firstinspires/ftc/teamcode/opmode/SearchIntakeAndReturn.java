@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import android.util.Log;
+
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -22,6 +24,11 @@ import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 // centerline.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
+    private static final String TAG = "SearchIntakeAndReturn";
+    // How often to log tx/ty/ta/heading while in a state - logging every loop would
+    // flood logcat, this gives enough resolution to reconstruct what happened.
+    private static final double LOG_INTERVAL_SECONDS = 0.25;
+
     private static final double SEARCH_SPIN_POWER = 0.25;
     private static final double SEARCH_TIMEOUT_SECONDS = 10.0;
 
@@ -66,6 +73,7 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double INTAKE_DWELL_SECONDS = 1.0;
 
     private final ElapsedTime stateTimer = new ElapsedTime();
+    private final ElapsedTime logTimer = new ElapsedTime();
     private MecanumDrive drive;
     private PinpointOdometry odometry;
     private Limelight3A limelight;
@@ -115,6 +123,20 @@ public final class SearchIntakeAndReturn extends OpMode {
         boolean hasTarget = result != null && result.isValid();
         if (hasTarget) {
             lastSeenTa = result.getTa();
+        }
+
+        if (logTimer.seconds() >= LOG_INTERVAL_SECONDS) {
+            logTimer.reset();
+            if (hasTarget) {
+                Log.i(TAG, String.format(
+                        "state=%s hasTarget=true tx=%.1f ty=%.1f ta=%.2f heading=%.1fdeg forward=%.2f right=%.2f",
+                        state, result.getTx(), result.getTy(), result.getTa(),
+                        Math.toDegrees(odometry.getHeadingRadians()), forward, right));
+            } else {
+                Log.i(TAG, String.format(
+                        "state=%s hasTarget=false heading=%.1fdeg forward=%.2f right=%.2f",
+                        state, Math.toDegrees(odometry.getHeadingRadians()), forward, right));
+            }
         }
 
         switch (state) {
@@ -242,6 +264,8 @@ public final class SearchIntakeAndReturn extends OpMode {
     }
 
     private void enter(State nextState) {
+        Log.i(TAG, String.format("%s -> %s heading=%.1fdeg",
+                state, nextState, Math.toDegrees(odometry.getHeadingRadians())));
         drive.stop();
         state = nextState;
         stateTimer.reset();
