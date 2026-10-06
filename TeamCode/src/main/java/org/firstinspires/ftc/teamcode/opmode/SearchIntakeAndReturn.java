@@ -13,78 +13,76 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 
-// Spins in place searching with the Limelight ("pollen" pipeline) until it finds a
-// target, turns in place to align with it, then LOCKS that heading and drives straight
-// on odometry heading-hold rather than continuing to steer off live (and noisy) tx
-// every loop - runs the intake, then returns to the start point using the calibrated
-// Pinpoint odometry. The Limelight is mounted on the same (front) side as the intake,
-// so the robot drives until the ball leaves the camera's view, at which point the ball
-// is already at the intake - no turning around or overshoot needed. The camera is
-// measured 0.4in right of center, so a small strafe-left correction brings the ball
-// onto the intake's true centerline.
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+// Spins in place until the Limelight ("pollen" pipeline) sees the ball, then stops and
+// averages a short burst of readings into one exact (forward, right) position for the ball
+// in the odometry frame, using the camera's known height and mounting position. After
+// that the camera is no longer used: the robot drives to that point with the intake
+// leading, intakes, and returns to the start with the calibrated Pinpoint odometry.
+// The camera is assumed level (no downward tilt) and facing the robot's driving direction.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final String TAG = "SearchIntakeAndReturn";
-    // How often to log tx/ty/ta/heading while in a state - logging every loop would
-    // flood logcat, this gives enough resolution to reconstruct what happened.
     private static final double LOG_INTERVAL_SECONDS = 0.25;
 
     private static final double SEARCH_SPIN_POWER = 0.25;
     private static final double SEARCH_TIMEOUT_SECONDS = 10.0;
 
-    private static final double TURN_KP = 0.015;
-    private static final double MIN_TURN_POWER = 0.1;
-    private static final double MAX_TURN_POWER = 0.4;
-    // How close tx needs to be to call the robot aligned and lock in a heading.
-    private static final double ALIGN_TOLERANCE_DEGREES = 5.0;
-    private static final double ALIGN_TIMEOUT_SECONDS = 3.0;
-
-    // Once aligned, drive straight on the locked heading instead of continuing to
-    // steer off live tx every loop - constantly re-steering off a noisy tx reading
-    // was fighting itself and the robot was barely moving forward at all.
-    private static final double DRIVE_FORWARD_POWER = 0.5;
-    private static final double DRIVE_HEADING_KP = 1.5;
-    private static final double DRIVE_MAX_TURN_POWER = 0.25;
-    private static final double DRIVE_TIMEOUT_SECONDS = 6.0;
-    // Keep driving until the ball has been out of the camera's view for this long. The
-    // short delay ignores single-frame dropouts; it also sets how far past the point
-    // where the ball leaves view the robot travels, so tune it if it stops short or long.
-    private static final double LOST_TARGET_SECONDS = 0.2;
-
-    // Centering the target on camera (tx = 0) aligns it with the camera's sightline,
-    // which is 0.4in right of the robot's true centerline - so the ball ends up 0.4in
-    // right of the intake's centerline unless corrected. Strafe left by that amount.
+    // Geometry, in inches. Forward/right are measured from the robot's center of rotation.
+    private static final double CAMERA_HEIGHT_INCHES = 7.75;
+    private static final double BALL_CENTER_HEIGHT_INCHES = 2.85 / 2;
+    private static final double CAMERA_FORWARD_OFFSET_INCHES = 11.5;
     private static final double CAMERA_RIGHT_OFFSET_INCHES = 0.4;
-    private static final double STRAFE_CORRECTION_POWER = 0.15;
-    private static final double STRAFE_CORRECTION_TIMEOUT_SECONDS = 1.5;
+    private static final double INTAKE_FORWARD_OFFSET_INCHES = 9.25;
+
+    // Ignore detections smaller than this (percent of the image): the Limelight has been
+    // reporting constant tiny-area noise (up to about 0.07%) that is not the ball.
+    private static final double MIN_TARGET_AREA_PERCENT = 0.1;
+    // A standard field is 144in across, so a ball farther than that is a bad reading.
+    private static final double MAX_BALL_DISTANCE_INCHES = 144.0;
+
+    private static final double MEASURE_SETTLE_SECONDS = 0.3;
+    private static final double MEASURE_WINDOW_SECONDS = 0.5;
+    private static final int MIN_SAMPLES = 5;
+    // At least this fraction of samples must land within this radius of the median, or
+    // the readings are scattered noise and the robot goes back to searching.
+    private static final double CONSISTENCY_RADIUS_INCHES = 3.0;
+    private static final double MIN_CONSISTENT_FRACTION = 0.6;
 
     private static final double POSITION_TOLERANCE_INCHES = 1.5;
-    private static final double RETURN_MAX_DRIVE_POWER = 0.5;
-    private static final double RETURN_MIN_DRIVE_POWER = 0.15;
-    private static final double RETURN_TRANSLATION_KP = 0.03;
-    private static final double RETURN_HEADING_KP = 1.5;
-    private static final double RETURN_MAX_TURN_POWER = 0.25;
+    private static final double HEADING_TOLERANCE_RADIANS = Math.toRadians(5);
+    private static final double MAX_DRIVE_POWER = 0.5;
+    private static final double MIN_DRIVE_POWER = 0.15;
+    private static final double TRANSLATION_KP = 0.03;
+    private static final double HEADING_KP = 1.5;
+    private static final double MAX_TURN_POWER = 0.25;
+    private static final double GO_TO_BALL_TIMEOUT_SECONDS = 8.0;
     private static final double RETURN_TIMEOUT_SECONDS = 8.0;
 
     private static final double INTAKE_DWELL_SECONDS = 1.0;
 
     private final ElapsedTime stateTimer = new ElapsedTime();
     private final ElapsedTime logTimer = new ElapsedTime();
-    private final ElapsedTime targetLostTimer = new ElapsedTime();
+    private final List<Double> sampleForwards = new ArrayList<>();
+    private final List<Double> sampleRights = new ArrayList<>();
     private MecanumDrive drive;
     private PinpointOdometry odometry;
     private Limelight3A limelight;
     private DcMotorEx intake;
     private State state;
-    private double lockedHeadingRadians;
-    private double strafeCorrectionStartForward;
-    private double strafeCorrectionStartRight;
+    private double ballForward;
+    private double ballRight;
+    private double targetForward;
+    private double targetRight;
+    private double targetHeading;
 
     private enum State {
         SEARCH,
-        ALIGN,
-        DRIVE,
-        STRAFE_CORRECTION,
+        MEASURE,
+        GO_TO_BALL,
         COLLECT,
         RETURN_TO_START,
         DONE
@@ -118,92 +116,58 @@ public final class SearchIntakeAndReturn extends OpMode {
         // pod direction is ever reversed in PinpointOdometry.
         double forward = -odometry.getForwardInches();
         double right = odometry.getRightInches();
+        double heading = odometry.getHeadingRadians();
         LLResult result = limelight.getLatestResult();
-        boolean hasTarget = result != null && result.isValid();
-        if (hasTarget) {
-            targetLostTimer.reset();
-        }
+        double[] ball = ballPosition(result, forward, right, heading);
 
         if (logTimer.seconds() >= LOG_INTERVAL_SECONDS) {
             logTimer.reset();
-            if (hasTarget) {
-                Log.i(TAG, String.format(
-                        "state=%s hasTarget=true tx=%.1f ty=%.1f ta=%.2f heading=%.1fdeg forward=%.2f right=%.2f",
-                        state, result.getTx(), result.getTy(), result.getTa(),
-                        Math.toDegrees(odometry.getHeadingRadians()), forward, right));
-            } else {
-                Log.i(TAG, String.format(
-                        "state=%s hasTarget=false heading=%.1fdeg forward=%.2f right=%.2f",
-                        state, Math.toDegrees(odometry.getHeadingRadians()), forward, right));
-            }
+            logSnapshot(result, ball, forward, right, heading);
         }
 
         switch (state) {
             case SEARCH:
-                if (hasTarget) {
-                    intake.setPower(1);
-                    enter(State.ALIGN);
+                if (ball != null) {
+                    sampleForwards.clear();
+                    sampleRights.clear();
+                    enter(State.MEASURE);
                 } else if (timedOut(SEARCH_TIMEOUT_SECONDS)) {
-                    telemetry.addLine("Search timed out; no target found");
+                    Log.i(TAG, "search timed out; no ball found");
                     enter(State.DONE);
                 } else {
                     drive.driveRobotCentric(0, 0, SEARCH_SPIN_POWER);
                 }
                 break;
 
-            case ALIGN:
-                if (hasTarget && Math.abs(result.getTx()) <= ALIGN_TOLERANCE_DEGREES) {
-                    lockedHeadingRadians = odometry.getHeadingRadians();
-                    enter(State.DRIVE);
-                } else if (hasTarget) {
-                    drive.driveRobotCentric(0, 0, turnPowerFor(result.getTx()));
-                    if (timedOut(ALIGN_TIMEOUT_SECONDS)) {
-                        // Close enough - lock in whatever heading we've got and go.
-                        lockedHeadingRadians = odometry.getHeadingRadians();
-                        enter(State.DRIVE);
-                    }
-                } else if (timedOut(ALIGN_TIMEOUT_SECONDS)) {
-                    enter(State.SEARCH);
-                } else {
-                    drive.stop();
+            case MEASURE:
+                if (ball != null && stateTimer.seconds() >= MEASURE_SETTLE_SECONDS) {
+                    sampleForwards.add(ball[0]);
+                    sampleRights.add(ball[1]);
+                }
+                if (timedOut(MEASURE_SETTLE_SECONDS + MEASURE_WINDOW_SECONDS)) {
+                    finishMeasurement(forward, right, heading);
                 }
                 break;
 
-            case DRIVE:
-                if (!hasTarget && targetLostTimer.seconds() >= LOST_TARGET_SECONDS) {
-                    // Ball is out of view - it's under the camera/at the intake now.
-                    enterStrafeCorrection(forward, right);
-                } else if (timedOut(DRIVE_TIMEOUT_SECONDS)) {
-                    enterStrafeCorrection(forward, right);
-                } else {
-                    double heading = odometry.getHeadingRadians();
-                    drive.driveRobotCentric(DRIVE_FORWARD_POWER, 0,
-                            holdHeadingTurn(heading, lockedHeadingRadians,
-                                    DRIVE_HEADING_KP, DRIVE_MAX_TURN_POWER));
-                }
-                break;
-
-            case STRAFE_CORRECTION:
-                double strafed = Math.hypot(
-                        forward - strafeCorrectionStartForward, right - strafeCorrectionStartRight);
-                if (strafed >= CAMERA_RIGHT_OFFSET_INCHES || timedOut(STRAFE_CORRECTION_TIMEOUT_SECONDS)) {
+            case GO_TO_BALL:
+                if (driveToPoint(targetForward, targetRight, targetHeading,
+                        forward, right, heading) || timedOut(GO_TO_BALL_TIMEOUT_SECONDS)) {
                     enter(State.COLLECT);
-                } else {
-                    drive.driveRobotCentric(0, -STRAFE_CORRECTION_POWER, 0);
                 }
                 break;
 
             case COLLECT:
                 drive.stop();
                 intake.setPower(1);
-                if (stateTimer.seconds() >= INTAKE_DWELL_SECONDS) {
+                if (timedOut(INTAKE_DWELL_SECONDS)) {
                     enter(State.RETURN_TO_START);
                 }
                 break;
 
             case RETURN_TO_START:
                 intake.setPower(0);
-                if (driveToStart(forward, right) || timedOut(RETURN_TIMEOUT_SECONDS)) {
+                if (driveToPoint(0, 0, 0, forward, right, heading)
+                        || timedOut(RETURN_TIMEOUT_SECONDS)) {
                     enter(State.DONE);
                 }
                 break;
@@ -215,41 +179,123 @@ public final class SearchIntakeAndReturn extends OpMode {
         }
 
         telemetry.addData("State", state);
-        telemetry.addData("Has target", hasTarget);
-        if (hasTarget) {
-            telemetry.addData("tx / ty / ta", "%.1f / %.1f / %.2f",
-                    result.getTx(), result.getTy(), result.getTa());
-        }
+        telemetry.addData("Ball (forward, right)", "%.1f, %.1f", ballForward, ballRight);
         telemetry.addData("Forward X (in)", "%.2f", forward);
         telemetry.addData("Right Y (in)", "%.2f", right);
+        telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(heading));
         telemetry.update();
     }
 
-    private double turnPowerFor(double txDegrees) {
-        double power = Math.max(-MAX_TURN_POWER, Math.min(MAX_TURN_POWER, -txDegrees * TURN_KP));
-        if (Math.abs(power) > 0 && Math.abs(power) < MIN_TURN_POWER) {
-            power = Math.copySign(MIN_TURN_POWER, power);
+    // Turns the averaged samples into the ball's position and the point the robot center
+    // must reach so the intake's pickup point lands on the ball, then heads there.
+    private void finishMeasurement(double forward, double right, double heading) {
+        int count = sampleForwards.size();
+        if (count < MIN_SAMPLES) {
+            Log.i(TAG, "measure failed: only " + count + " valid samples");
+            enter(State.SEARCH);
+            return;
         }
-        return power;
+
+        double medianForward = median(sampleForwards);
+        double medianRight = median(sampleRights);
+        int consistent = 0;
+        for (int i = 0; i < count; i++) {
+            if (Math.hypot(sampleForwards.get(i) - medianForward,
+                    sampleRights.get(i) - medianRight) <= CONSISTENCY_RADIUS_INCHES) {
+                consistent++;
+            }
+        }
+        if (consistent < MIN_CONSISTENT_FRACTION * count) {
+            Log.i(TAG, "measure failed: only " + consistent + " of " + count
+                    + " samples agree");
+            enter(State.SEARCH);
+            return;
+        }
+
+        ballForward = medianForward;
+        ballRight = medianRight;
+
+        double toBallForward = ballForward - forward;
+        double toBallRight = ballRight - right;
+        double distance = Math.hypot(toBallForward, toBallRight);
+        if (distance > 1e-6) {
+            double travel = Math.max(distance - INTAKE_FORWARD_OFFSET_INCHES, 0);
+            targetForward = forward + toBallForward / distance * travel;
+            targetRight = right + toBallRight / distance * travel;
+            // Facing direction for heading h is (cos h, -sin h) in (forward, right).
+            targetHeading = Math.atan2(-toBallRight, toBallForward);
+        } else {
+            targetForward = forward;
+            targetRight = right;
+            targetHeading = heading;
+        }
+
+        Log.i(TAG, String.format(
+                "ball at forward=%.1f right=%.1f from %d samples (%d agree); "
+                        + "target forward=%.1f right=%.1f heading=%.1fdeg",
+                ballForward, ballRight, count, consistent,
+                targetForward, targetRight, Math.toDegrees(targetHeading)));
+        intake.setPower(1);
+        enter(State.GO_TO_BALL);
     }
 
-    // Drives toward the start point (0, 0) using the same odometry feedback approach
-    // as IntakeAndReturn. Returns true once within tolerance.
-    private boolean driveToStart(double forward, double right) {
-        double errorForward = -forward;
-        double errorRight = -right;
+    // Returns the ball's position in the odometry frame (forward, right), or null if the
+    // reading isn't a trustworthy detection of the ball.
+    private static double[] ballPosition(
+            LLResult result, double forward, double right, double heading) {
+        if (result == null || !result.isValid() || result.getTa() < MIN_TARGET_AREA_PERCENT) {
+            return null;
+        }
+        return ballFieldPosition(result.getTx(), result.getTy(), forward, right, heading);
+    }
+
+    // Converts the Limelight angles to the ball's field position, or null if the angles
+    // can't be a ball on the floor within the field. With a level camera the ball center
+    // sits below the lens, so ty must be negative and the distance ahead of the camera is
+    // (camera height - ball center height) / tan(-ty).
+    static double[] ballFieldPosition(
+            double txDegrees, double tyDegrees, double forward, double right, double heading) {
+        if (tyDegrees >= 0) {
+            return null;
+        }
+        double ahead = (CAMERA_HEIGHT_INCHES - BALL_CENTER_HEIGHT_INCHES)
+                / Math.tan(Math.toRadians(-tyDegrees));
+        if (ahead > MAX_BALL_DISTANCE_INCHES) {
+            return null;
+        }
+        double robotForward = CAMERA_FORWARD_OFFSET_INCHES + ahead;
+        double robotRight = CAMERA_RIGHT_OFFSET_INCHES
+                + ahead * Math.tan(Math.toRadians(txDegrees));
+        double cos = Math.cos(heading);
+        double sin = Math.sin(heading);
+        return new double[] {
+                forward + robotForward * cos + robotRight * sin,
+                right - robotForward * sin + robotRight * cos
+        };
+    }
+
+    // Drives to a field point while turning to the target heading. Returns true once the
+    // robot is within tolerance of both.
+    private boolean driveToPoint(double goalForward, double goalRight, double goalHeading,
+            double forward, double right, double heading) {
+        double errorForward = goalForward - forward;
+        double errorRight = goalRight - right;
         double distance = Math.hypot(errorForward, errorRight);
-        if (distance <= POSITION_TOLERANCE_INCHES) {
+        double headingError = normalizeAngle(heading - goalHeading);
+        boolean atPoint = distance <= POSITION_TOLERANCE_INCHES;
+        if (atPoint && Math.abs(headingError) <= HEADING_TOLERANCE_RADIANS) {
             drive.stop();
             return true;
         }
 
-        double magnitude = clip(distance * RETURN_TRANSLATION_KP,
-                RETURN_MIN_DRIVE_POWER, RETURN_MAX_DRIVE_POWER);
-        double fieldForward = errorForward / distance * magnitude;
-        double fieldRight = errorRight / distance * magnitude;
-        double heading = odometry.getHeadingRadians();
-        double clockwise = holdHeadingTurn(heading, 0, RETURN_HEADING_KP, RETURN_MAX_TURN_POWER);
+        double fieldForward = 0;
+        double fieldRight = 0;
+        if (!atPoint) {
+            double magnitude = clip(distance * TRANSLATION_KP, MIN_DRIVE_POWER, MAX_DRIVE_POWER);
+            fieldForward = errorForward / distance * magnitude;
+            fieldRight = errorRight / distance * magnitude;
+        }
+        double clockwise = holdHeadingTurn(heading, goalHeading, HEADING_KP, MAX_TURN_POWER);
         drive.driveFieldCentric(fieldForward, fieldRight, clockwise, heading);
         return false;
     }
@@ -258,9 +304,22 @@ public final class SearchIntakeAndReturn extends OpMode {
     // Pinpoint's heading increases counter-clockwise while the drive's "clockwise" input
     // is clockwise-positive, so the error is heading minus target; the opposite sign
     // pushes the heading further away and the robot spins in circles.
-    private static double holdHeadingTurn(
+    static double holdHeadingTurn(
             double heading, double targetHeading, double kp, double maxTurn) {
         return clip(normalizeAngle(heading - targetHeading) * kp, -maxTurn, maxTurn);
+    }
+
+    private void logSnapshot(
+            LLResult result, double[] ball, double forward, double right, double heading) {
+        String limelightPart = result != null && result.isValid()
+                ? String.format("tx=%.1f ty=%.1f ta=%.2f",
+                        result.getTx(), result.getTy(), result.getTa())
+                : "no detection";
+        String ballPart = ball != null
+                ? String.format("ball=(%.1f, %.1f)", ball[0], ball[1])
+                : "ball=none";
+        Log.i(TAG, String.format("state=%s %s %s heading=%.1fdeg forward=%.2f right=%.2f",
+                state, limelightPart, ballPart, Math.toDegrees(heading), forward, right));
     }
 
     private boolean timedOut(double seconds) {
@@ -268,17 +327,17 @@ public final class SearchIntakeAndReturn extends OpMode {
     }
 
     private void enter(State nextState) {
-        Log.i(TAG, String.format("%s -> %s heading=%.1fdeg",
-                state, nextState, Math.toDegrees(odometry.getHeadingRadians())));
+        Log.i(TAG, String.format("%s -> %s", state, nextState));
         drive.stop();
         state = nextState;
         stateTimer.reset();
     }
 
-    private void enterStrafeCorrection(double forward, double right) {
-        strafeCorrectionStartForward = forward;
-        strafeCorrectionStartRight = right;
-        enter(State.STRAFE_CORRECTION);
+    private static double median(List<Double> values) {
+        List<Double> sorted = new ArrayList<>(values);
+        Collections.sort(sorted);
+        int n = sorted.size();
+        return n % 2 == 1 ? sorted.get(n / 2) : (sorted.get(n / 2 - 1) + sorted.get(n / 2)) / 2;
     }
 
     private static double normalizeAngle(double radians) {
