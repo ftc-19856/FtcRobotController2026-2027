@@ -37,6 +37,10 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double CAMERA_FORWARD_OFFSET_INCHES = 11.5;
     private static final double CAMERA_RIGHT_OFFSET_INCHES = 0.4;
     private static final double INTAKE_FORWARD_OFFSET_INCHES = 9.25;
+    // Drive this much past the computed pickup point. On the robot it stopped about 10in
+    // short; part of that is the camera underestimating distance (closer readings put the
+    // ball 5-6in farther than the first one), so this may need retuning at other distances.
+    private static final double EXTRA_APPROACH_INCHES = 10.0;
 
     // Ignore detections smaller than this (percent of the image): the Limelight has been
     // reporting constant tiny-area noise (up to about 0.07%) that is not the ball.
@@ -219,7 +223,8 @@ public final class SearchIntakeAndReturn extends OpMode {
         double toBallRight = ballRight - right;
         double distance = Math.hypot(toBallForward, toBallRight);
         if (distance > 1e-6) {
-            double travel = Math.max(distance - INTAKE_FORWARD_OFFSET_INCHES, 0);
+            double travel = Math.max(
+                    distance - INTAKE_FORWARD_OFFSET_INCHES + EXTRA_APPROACH_INCHES, 0);
             targetForward = forward + toBallForward / distance * travel;
             targetRight = right + toBallRight / distance * travel;
             // Facing direction for heading h is (cos h, -sin h) in (forward, right).
