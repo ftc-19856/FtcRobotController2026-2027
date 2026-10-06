@@ -18,10 +18,10 @@ import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 // on odometry heading-hold rather than continuing to steer off live (and noisy) tx
 // every loop - runs the intake, then returns to the start point using the calibrated
 // Pinpoint odometry. The Limelight is mounted on the same (front) side as the intake,
-// so reaching "close enough" on camera (by target area) means the ball is already at
-// the intake - no turning around or overshoot needed. It's measured 0.4in right of
-// center, so a small strafe-left correction brings the ball onto the intake's true
-// centerline.
+// so the robot drives until the ball leaves the camera's view, at which point the ball
+// is already at the intake - no turning around or overshoot needed. The camera is
+// measured 0.4in right of center, so a small strafe-left correction brings the ball
+// onto the intake's true centerline.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final String TAG = "SearchIntakeAndReturn";
@@ -46,14 +46,10 @@ public final class SearchIntakeAndReturn extends OpMode {
     private static final double DRIVE_HEADING_KP = 1.5;
     private static final double DRIVE_MAX_TURN_POWER = 0.25;
     private static final double DRIVE_TIMEOUT_SECONDS = 6.0;
-    // Limelight target area (percent of image) at which the ball is considered close
-    // enough to intake. Placeholder - tune on the real robot for the camera's mount
-    // height/angle and the ball's real size.
-    private static final double TARGET_AREA_CLOSE_ENOUGH = 8.0;
-    // If the target is lost from view after its area was at least this fraction of
-    // the close-enough threshold, treat it as "got too close for the camera to see"
-    // rather than "lost the ball" - common right before contact.
-    private static final double LOST_TARGET_ASSUME_ARRIVED_FRACTION = 0.5;
+    // Keep driving until the ball has been out of the camera's view for this long. The
+    // short delay ignores single-frame dropouts; it also sets how far past the point
+    // where the ball leaves view the robot travels, so tune it if it stops short or long.
+    private static final double LOST_TARGET_SECONDS = 0.2;
 
     // Centering the target on camera (tx = 0) aligns it with the camera's sightline,
     // which is 0.4in right of the robot's true centerline - so the ball ends up 0.4in
@@ -74,12 +70,12 @@ public final class SearchIntakeAndReturn extends OpMode {
 
     private final ElapsedTime stateTimer = new ElapsedTime();
     private final ElapsedTime logTimer = new ElapsedTime();
+    private final ElapsedTime targetLostTimer = new ElapsedTime();
     private MecanumDrive drive;
     private PinpointOdometry odometry;
     private Limelight3A limelight;
     private DcMotorEx intake;
     private State state;
-    private double lastSeenTa;
     private double lockedHeadingRadians;
     private double strafeCorrectionStartForward;
     private double strafeCorrectionStartRight;
@@ -117,12 +113,15 @@ public final class SearchIntakeAndReturn extends OpMode {
     @Override
     public void loop() {
         odometry.update();
-        double forward = odometry.getForwardInches();
+        // The Pinpoint's forward axis currently reads negative when the robot drives
+        // forward, so flip it into the drive's convention. Remove this if the forward
+        // pod direction is ever reversed in PinpointOdometry.
+        double forward = -odometry.getForwardInches();
         double right = odometry.getRightInches();
         LLResult result = limelight.getLatestResult();
         boolean hasTarget = result != null && result.isValid();
         if (hasTarget) {
-            lastSeenTa = result.getTa();
+            targetLostTimer.reset();
         }
 
         if (logTimer.seconds() >= LOG_INTERVAL_SECONDS) {
@@ -171,19 +170,16 @@ public final class SearchIntakeAndReturn extends OpMode {
                 break;
 
             case DRIVE:
-                if (hasTarget && result.getTa() >= TARGET_AREA_CLOSE_ENOUGH) {
-                    enterStrafeCorrection(forward, right);
-                } else if (lastSeenTa >= TARGET_AREA_CLOSE_ENOUGH * LOST_TARGET_ASSUME_ARRIVED_FRACTION) {
-                    // Likely just too close for the camera to see anymore.
+                if (!hasTarget && targetLostTimer.seconds() >= LOST_TARGET_SECONDS) {
+                    // Ball is out of view - it's under the camera/at the intake now.
                     enterStrafeCorrection(forward, right);
                 } else if (timedOut(DRIVE_TIMEOUT_SECONDS)) {
                     enterStrafeCorrection(forward, right);
                 } else {
                     double heading = odometry.getHeadingRadians();
-                    double headingError = normalizeAngle(lockedHeadingRadians - heading);
-                    double turn = clip(headingError * DRIVE_HEADING_KP,
-                            -DRIVE_MAX_TURN_POWER, DRIVE_MAX_TURN_POWER);
-                    drive.driveRobotCentric(DRIVE_FORWARD_POWER, 0, turn);
+                    drive.driveRobotCentric(DRIVE_FORWARD_POWER, 0,
+                            holdHeadingTurn(heading, lockedHeadingRadians,
+                                    DRIVE_HEADING_KP, DRIVE_MAX_TURN_POWER));
                 }
                 break;
 
@@ -253,10 +249,18 @@ public final class SearchIntakeAndReturn extends OpMode {
         double fieldForward = errorForward / distance * magnitude;
         double fieldRight = errorRight / distance * magnitude;
         double heading = odometry.getHeadingRadians();
-        double clockwise = clip(-heading * RETURN_HEADING_KP,
-                -RETURN_MAX_TURN_POWER, RETURN_MAX_TURN_POWER);
+        double clockwise = holdHeadingTurn(heading, 0, RETURN_HEADING_KP, RETURN_MAX_TURN_POWER);
         drive.driveFieldCentric(fieldForward, fieldRight, clockwise, heading);
         return false;
+    }
+
+    // Returns the clockwise turn power that brings heading back to the target. The
+    // Pinpoint's heading increases counter-clockwise while the drive's "clockwise" input
+    // is clockwise-positive, so the error is heading minus target; the opposite sign
+    // pushes the heading further away and the robot spins in circles.
+    private static double holdHeadingTurn(
+            double heading, double targetHeading, double kp, double maxTurn) {
+        return clip(normalizeAngle(heading - targetHeading) * kp, -maxTurn, maxTurn);
     }
 
     private boolean timedOut(double seconds) {
