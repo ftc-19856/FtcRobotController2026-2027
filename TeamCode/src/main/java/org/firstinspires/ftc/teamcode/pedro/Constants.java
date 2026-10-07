@@ -1,62 +1,39 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
-
-import androidx.annotation.Nullable;
+package org.firstinspires.ftc.teamcode.pedro;
 
 import com.pedropathing.follower.Follower;
-import com.pedropathing.follower.FollowerConstants;
-import com.pedropathing.ftc.FollowerBuilder;
-import com.pedropathing.ftc.drivetrains.Mecanum;
-import com.pedropathing.ftc.drivetrains.MecanumConstants;
-import com.pedropathing.ftc.localization.Encoder;
-import com.pedropathing.ftc.localization.constants.TwoWheelConstants;
-import com.pedropathing.paths.PathConstraints;
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.pedropathing.revhub.drivetrains.MecanumConfig;
+import com.pedropathing.revhub.localizers.PinpointConfig;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
 public class Constants {
-    public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(6.8);
-
-    public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1, 1);
-
-    public static MecanumConstants driveConstants = new MecanumConstants()
-            .maxPower(.2)
-            .xVelocity(63.44)
-            .yVelocity(53.1)
-            .leftFrontMotorName("frontLeftMotor")
-            .leftRearMotorName("backLeftMotor")
-            .rightFrontMotorName("frontRightMotor")
-            .rightRearMotorName("backRightMotor")
-            .leftFrontMotorDirection(DcMotorEx.Direction.FORWARD)
-            .leftRearMotorDirection(DcMotorEx.Direction.FORWARD)
-            .rightFrontMotorDirection(DcMotorEx.Direction.REVERSE)
-            .rightRearMotorDirection(DcMotorEx.Direction.REVERSE);
-
-    public static TwoWheelConstants localizerConstants = new TwoWheelConstants()
-            .forwardEncoder_HardwareMapName("backLeftMotor")
-            .strafeEncoder_HardwareMapName("frontLeftMotor")
-            .IMU_HardwareMapName("imu")
-            .forwardPodY(-6.5)
-            .strafePodX(6.5)
-            .forwardEncoderDirection(Encoder.REVERSE)
-            .forwardTicksToInches(.00199)
-            .strafeTicksToInches(.00199)
-            .IMU_Orientation(
-                    new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
-                            RevHubOrientationOnRobot.UsbFacingDirection.UP));
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-        return super.equals(obj);
+    public static Follower create(HardwareMap h) {
+        // return new Follower(Drivetrain, Localizer, Foresight);
+        return null;
     }
 
-    public static Follower createFollower(HardwareMap hardwareMap) {
-        return new FollowerBuilder(followerConstants, hardwareMap)
-                .mecanumDrivetrain(driveConstants)
-                .pathConstraints(pathConstraints)
-                .twoWheelLocalizer(localizerConstants)
-                .build();
-    }
+    public static MecanumConfig drivetrainConfig = new MecanumConfig(c -> {
+        c.frontLeftName.set("frontLeftMotor");
+        c.frontRightName.set("frontRightMotor");
+        c.backLeftName.set("backLeftMotor");
+        c.backRightName.set("backRightMotor");
+        c.frontLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+        c.frontRightDirection.set(DcMotorSimple.Direction.FORWARD);
+        c.backLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+        c.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
+    });
+
+    public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
+        c.name.set("pinpoint");
+        c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        c.xPodOffset.set(-6.650030181163879);
+        c.yPodOffset.set(-9.229864886426551);
+        c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
+        c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        c.globalDistanceUnit.set(DistanceUnit.INCH);
+        c.offsetUnits.set(DistanceUnit.INCH);
+    });
 }

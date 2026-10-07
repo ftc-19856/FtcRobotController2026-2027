@@ -48,7 +48,7 @@ public final class StarterTeleOp extends OpMode {
 
         telemetry.addData("Yaw (rad)", "%.3f", drive.getYawRadians());
         telemetry.addData("Drive FL/FR", "%.2f / %.2f",
-                powers.frontLeft, powers.frontRight);
+                powers.frontLeftMotor, powers.frontRightMotor);
         telemetry.addData("Drive BL/BR", "%.2f / %.2f",
                 powers.backLeft, powers.backRight);
         telemetry.addData("Intake", intake == null ? "not configured"
