@@ -14,8 +14,10 @@ public final class RobotConfig {
 
     // X pod: positive is left of the tracking point.
     public static final double PINPOINT_X_OFFSET_INCHES = -0.752;
-    // Y pod: positive is forward of the tracking point.
-    public static final double PINPOINT_Y_OFFSET_INCHES = -1.769;
+    // Y pod: positive is forward of the tracking point. Calibrated as -1.769 while the
+    // strafe pod's direction was reversed; flipped along with it. Re-run Pod Offset
+    // Calibration to confirm.
+    public static final double PINPOINT_Y_OFFSET_INCHES = 1.769;
 
     private RobotConfig() {
     }

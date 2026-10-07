@@ -22,9 +22,12 @@ public final class PinpointOdometry {
         pinpoint.setOffsets(xOffset, yOffset, DistanceUnit.INCH);
         pinpoint.setEncoderResolution(
                 GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        // The strafe pod counts up when the robot moves right, the opposite of the
+        // Pinpoint's left-positive Y, which mirrored every sideways move (returning to
+        // start drifted the wrong way). Reversed here, with its offset's sign flipped to match.
         pinpoint.setEncoderDirections(
                 GoBildaPinpointDriver.EncoderDirection.FORWARD,
-                GoBildaPinpointDriver.EncoderDirection.FORWARD);
+                GoBildaPinpointDriver.EncoderDirection.REVERSED);
         pinpoint.resetPosAndIMU();
     }
 
