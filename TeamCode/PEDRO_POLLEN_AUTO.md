@@ -23,7 +23,11 @@ uses the tuned Pedro follower for its approach:
    robot to rotate inside the 144-inch field. The center stays at least the
    half-diagonal plus one inch from an edge during collection. From the starting
    corner this is a short movement before the first scan.
-2. Rotate at a requested 70 degrees/second while Pedro holds the center position.
+2. Rotate at a requested 70 degrees/second using Pedro's heading control with
+   zero translation command. Scanning and target alignment use scaled holds
+   with translation scaling zero and heading scaling one. This prevents XY
+   position corrections from mixing into a turn and creating a wheel pivot.
+   The regular pickup and parking paths retain their tuned position control.
 3. On a visible pollen detection, stop the scan, settle for 0.12 seconds, then
    lock the median field position from three distinct camera frames agreeing
    within four inches. An inconsistent or lost detection resumes scanning.
@@ -66,6 +70,12 @@ SDK STOP also cancels the routine and immediately zeros drive/intake power.
 
 Telemetry shows the collection phase and locked pickup pose. Verify camera
 range, intake mouth offset, overtravel, turn clearance and scan/approach behavior
-on the robot. This Pedro autonomous is separate from the existing
+on the robot. Search telemetry also shows reported position drift during the
+spin. Heading-only control prevents commanded translation but cannot correct
+mechanical wheel slip or an inaccurate odometry tracking point. If drift remains,
+verify motor mapping and the Pedro Pinpoint pod offsets relative to the chassis
+center of rotation using the existing Pinpoint Tuner. The OpMode restores the
+previous hold scaling settings on STOP.
+This Pedro autonomous is separate from the existing
 `SearchIntakeAndReturn`; merging it into master preserves that autonomous's code
 and the existing legacy odometry correction.
