@@ -12,17 +12,17 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
 
 /** Shared robot-centric and field-centric mecanum drivetrain. */
 public final class MecanumDrive {
-    private final DcMotorEx frontLeft;
-    private final DcMotorEx backLeft;
-    private final DcMotorEx frontRight;
-    private final DcMotorEx backRight;
+    private final DcMotorEx frontLeftMotor;
+    private final DcMotorEx backLeftMotor;
+    private final DcMotorEx frontRightMotor;
+    private final DcMotorEx backRightMotor;
     private final IMU imu;
 
     public MecanumDrive(HardwareMap hardwareMap) {
-        frontLeft = hardwareMap.get(DcMotorEx.class, RobotConfig.FRONT_LEFT_MOTOR);
-        backLeft = hardwareMap.get(DcMotorEx.class, RobotConfig.BACK_LEFT_MOTOR);
-        frontRight = hardwareMap.get(DcMotorEx.class, RobotConfig.FRONT_RIGHT_MOTOR);
-        backRight = hardwareMap.get(DcMotorEx.class, RobotConfig.BACK_RIGHT_MOTOR);
+        frontLeftMotor = hardwareMap.get(DcMotorEx.class, RobotConfig.FRONT_LEFT_MOTOR);
+        backLeftMotor = hardwareMap.get(DcMotorEx.class, RobotConfig.BACK_LEFT_MOTOR);
+        frontRightMotor = hardwareMap.get(DcMotorEx.class, RobotConfig.FRONT_RIGHT_MOTOR);
+        backRightMotor = hardwareMap.get(DcMotorEx.class, RobotConfig.BACK_RIGHT_MOTOR);
         imu = hardwareMap.get(IMU.class, RobotConfig.IMU);
 
         RevHubOrientationOnRobot orientation = new RevHubOrientationOnRobot(
@@ -30,15 +30,15 @@ public final class MecanumDrive {
                 RevHubOrientationOnRobot.UsbFacingDirection.FORWARD);
         imu.initialize(new IMU.Parameters(orientation));
 
-        frontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
-        backLeft.setDirection(DcMotorSimple.Direction.REVERSE);
-        frontRight.setDirection(DcMotorSimple.Direction.FORWARD);
-        backRight.setDirection(DcMotorSimple.Direction.FORWARD);
+        frontLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        backLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotorSimple.Direction.FORWARD);
 
-        configureMotor(frontLeft);
-        configureMotor(backLeft);
-        configureMotor(frontRight);
-        configureMotor(backRight);
+        configureMotor(frontLeftMotor);
+        configureMotor(backLeftMotor);
+        configureMotor(frontRightMotor);
+        configureMotor(backRightMotor);
     }
 
     private static void configureMotor(DcMotorEx motor) {
@@ -90,38 +90,38 @@ public final class MecanumDrive {
     }
 
     private void apply(WheelPowers powers) {
-        frontLeft.setPower(powers.frontLeft);
-        backLeft.setPower(powers.backLeft);
-        frontRight.setPower(powers.frontRight);
-        backRight.setPower(powers.backRight);
+        frontLeftMotor.setPower(powers.frontLeftMotor);
+        backLeftMotor.setPower(powers.backLeft);
+        frontRightMotor.setPower(powers.frontRightMotor);
+        backRightMotor.setPower(powers.backRight);
     }
 
     public static WheelPowers calculate(double forward, double right, double clockwise) {
-        double frontLeft = forward + right + clockwise;
+        double frontLeftMotor = forward + right + clockwise;
         double backLeft = forward - right + clockwise;
-        double frontRight = forward - right - clockwise;
+        double frontRightMotor = forward - right - clockwise;
         double backRight = forward + right - clockwise;
-        double scale = Math.max(1.0, Math.max(Math.abs(frontLeft),
+        double scale = Math.max(1.0, Math.max(Math.abs(frontLeftMotor),
                 Math.max(Math.abs(backLeft),
-                        Math.max(Math.abs(frontRight), Math.abs(backRight)))));
+                        Math.max(Math.abs(frontRightMotor), Math.abs(backRight)))));
         return new WheelPowers(
-                frontLeft / scale,
+                frontLeftMotor / scale,
                 backLeft / scale,
-                frontRight / scale,
+                frontRightMotor / scale,
                 backRight / scale);
     }
 
     public static final class WheelPowers {
-        public final double frontLeft;
+        public final double frontLeftMotor;
         public final double backLeft;
-        public final double frontRight;
+        public final double frontRightMotor;
         public final double backRight;
 
         public WheelPowers(
-                double frontLeft, double backLeft, double frontRight, double backRight) {
-            this.frontLeft = frontLeft;
+                double frontLeftMotor, double backLeft, double frontRightMotor, double backRight) {
+            this.frontLeftMotor = frontLeftMotor;
             this.backLeft = backLeft;
-            this.frontRight = frontRight;
+            this.frontRightMotor = frontRightMotor;
             this.backRight = backRight;
         }
     }

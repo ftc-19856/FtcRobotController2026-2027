@@ -53,11 +53,11 @@ public final class MecanumDriveTest {
     }
 
     private static void assertPowers(
-            WheelPowers powers, double frontLeft, double backLeft,
-            double frontRight, double backRight) {
-        assertEquals(frontLeft, powers.frontLeft, EPSILON);
+            WheelPowers powers, double frontLeftMotor, double backLeft,
+            double frontRightMotor, double backRight) {
+        assertEquals(frontLeftMotor, powers.frontLeftMotor, EPSILON);
         assertEquals(backLeft, powers.backLeft, EPSILON);
-        assertEquals(frontRight, powers.frontRight, EPSILON);
+        assertEquals(frontRightMotor, powers.frontRightMotor, EPSILON);
         assertEquals(backRight, powers.backRight, EPSILON);
     }
 }
