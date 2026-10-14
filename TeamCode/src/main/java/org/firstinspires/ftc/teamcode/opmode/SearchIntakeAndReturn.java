@@ -21,13 +21,22 @@ import java.util.List;
 // it: moves out of the corner, sweeps the camera across the square (a quarter turn), and if
 // that finds nothing, searches again from the middle. Limelight readings are turned into one
 // field position for the ball; far balls get a second, closer measurement. Then it drives
-// there by odometry with the intake leading, intakes, and returns to the start. Every drive
-// target is clamped so the whole robot stays in the square, and it stops if odometry ever
-// says it's outside. The camera is assumed level and facing the robot's driving direction.
+// there by odometry with the intake leading and intakes. After each ball it heads for the
+// middle and searches again, until it has picked up BALLS_TO_COLLECT, finds no more, or runs
+// out of time; then it returns to the start. Every drive target is clamped so the whole
+// robot stays in the square, and it stops if odometry ever says it's outside. The camera is
+// assumed level and facing the robot's driving direction.
 @Autonomous(name = "Search Intake And Return", group = "Competition")
 public final class SearchIntakeAndReturn extends OpMode {
     private static final String TAG = "SearchIntakeAndReturn";
     private static final double LOG_INTERVAL_SECONDS = 0.25;
+
+    // Pickups are counted by attempt: nothing senses whether a ball actually went in, so a
+    // missed ball is found and tried again.
+    private static final int BALLS_TO_COLLECT = 4;
+    // Head home after this long no matter how many balls are in, so a ball that can't be
+    // picked up or a target that never measures cleanly can't keep the robot out forever.
+    private static final double MAX_RUN_SECONDS = 120.0;
 
     // Robot footprint, in inches from its center of rotation. The body is 20in long and
     // 17.5in wide; the camera sticks out to 11.5in in front of center.
@@ -128,6 +137,7 @@ public final class SearchIntakeAndReturn extends OpMode {
     private final ElapsedTime stateTimer = new ElapsedTime();
     private final ElapsedTime logTimer = new ElapsedTime();
     private final ElapsedTime insideTimer = new ElapsedTime();
+    private final ElapsedTime runTimer = new ElapsedTime();
     private final List<Double> sampleForwards = new ArrayList<>();
     private final List<Double> sampleRights = new ArrayList<>();
     private final List<Double> sampleAreas = new ArrayList<>();
@@ -144,6 +154,7 @@ public final class SearchIntakeAndReturn extends OpMode {
     private double targetRight;
     private double targetHeading;
     private double holdHeading;
+    private int ballsCollected;
 
     private enum State {
         LEAVE_CORNER,
@@ -177,6 +188,8 @@ public final class SearchIntakeAndReturn extends OpMode {
     @Override
     public void start() {
         insideTimer.reset();
+        runTimer.reset();
+        ballsCollected = 0;
         enter(State.LEAVE_CORNER);
     }
 
@@ -205,6 +218,12 @@ public final class SearchIntakeAndReturn extends OpMode {
             enter(State.DONE);
         }
 
+        if (runTimer.seconds() >= MAX_RUN_SECONDS && !isFinishing()) {
+            Log.i(TAG, String.format("out of time with %d of %d balls; returning",
+                    ballsCollected, BALLS_TO_COLLECT));
+            startReturn(heading);
+        }
+
         switch (state) {
             case LEAVE_CORNER:
                 if (driveToPoint(TURN_SAFE_FORWARD, TURN_SAFE_RIGHT, 0,
@@ -228,7 +247,11 @@ public final class SearchIntakeAndReturn extends OpMode {
                 break;
 
             case GO_TO_CENTER:
-                if (driveToPoint(CENTER_FORWARD, CENTER_RIGHT, holdHeading,
+                // After a pickup the next ball is often already in view. Only stop for it
+                // where there's room to turn toward it without leaving the square.
+                if (ball != null && canTurnInPlace(forward, right)) {
+                    startMeasuring(State.GO_TO_CENTER);
+                } else if (driveToPoint(CENTER_FORWARD, CENTER_RIGHT, holdHeading,
                         forward, right, heading, false)
                         || timedOut(GO_TO_CENTER_TIMEOUT_SECONDS)) {
                     enter(State.SEARCH_CENTER);
@@ -239,7 +262,8 @@ public final class SearchIntakeAndReturn extends OpMode {
                 if (ball != null) {
                     startMeasuring(State.SEARCH_CENTER);
                 } else if (timedOut(CENTER_SEARCH_TIMEOUT_SECONDS)) {
-                    Log.i(TAG, "search timed out; no ball found");
+                    Log.i(TAG, String.format("search timed out with %d of %d balls",
+                            ballsCollected, BALLS_TO_COLLECT));
                     startReturn(heading);
                 } else {
                     holdPositionWhileTurning(CENTER_FORWARD, CENTER_RIGHT,
@@ -278,7 +302,18 @@ public final class SearchIntakeAndReturn extends OpMode {
                 drive.stop();
                 intake.setPower(1);
                 if (timedOut(INTAKE_DWELL_SECONDS)) {
-                    startReturn(heading);
+                    ballsCollected++;
+                    Log.i(TAG, String.format("pickup %d of %d done",
+                            ballsCollected, BALLS_TO_COLLECT));
+                    if (ballsCollected >= BALLS_TO_COLLECT) {
+                        startReturn(heading);
+                    } else {
+                        // Look for the next one from the middle, keeping this heading on
+                        // the way since there may not be room to turn here.
+                        intake.setPower(0);
+                        holdHeading = heading;
+                        enter(State.GO_TO_CENTER);
+                    }
                 }
                 break;
 
@@ -308,6 +343,7 @@ public final class SearchIntakeAndReturn extends OpMode {
         }
 
         telemetry.addData("State", state);
+        telemetry.addData("Balls", "%d of %d", ballsCollected, BALLS_TO_COLLECT);
         telemetry.addData("Ball (forward, right)", "%.1f, %.1f", ballForward, ballRight);
         telemetry.addData("Forward X (in)", "%.2f", forward);
         telemetry.addData("Right Y (in)", "%.2f", right);
@@ -321,6 +357,11 @@ public final class SearchIntakeAndReturn extends OpMode {
         sampleRights.clear();
         sampleAreas.clear();
         enter(State.MEASURE);
+    }
+
+    private boolean isFinishing() {
+        return state == State.RETURN_TO_TURN_SAFE || state == State.RETURN_TO_START
+                || state == State.DONE;
     }
 
     private void startReturn(double heading) {
@@ -588,8 +629,10 @@ public final class SearchIntakeAndReturn extends OpMode {
         String ballPart = ball != null
                 ? String.format("ball=(%.1f, %.1f)", ball[0], ball[1])
                 : "ball=none";
-        Log.i(TAG, String.format("state=%s %s %s heading=%.1fdeg forward=%.2f right=%.2f",
-                state, limelightPart, ballPart, Math.toDegrees(heading), forward, right));
+        Log.i(TAG, String.format(
+                "state=%s balls=%d %s %s heading=%.1fdeg forward=%.2f right=%.2f",
+                state, ballsCollected, limelightPart, ballPart,
+                Math.toDegrees(heading), forward, right));
     }
 
     private boolean timedOut(double seconds) {
