@@ -1,0 +1,77 @@
+# Hive vision and shooter setup
+
+The intended scoring target is the hive that is **down**. The existing Pedro
+intake/park autonomous is preserved while the new mechanisms are calibrated.
+
+## Confirmed hardware
+
+- `intake`: motor, also mechanically drives the geared transfer.
+- `shooter`: shooter motor.
+- `turret`: motor; gearing, limits, homing and encoder calibration are unknown.
+- `hood`: adjustable positional servo. The stated gearing is 9/10 of a
+  300-degree servo rotation; the precise input/output relationship and linkage
+  limits still need confirmation before converting hood angles to servo positions.
+- Blocker: positional servo intended to rotate 90 degrees to block; hardware
+  name, open position, direction and total servo travel still need confirmation.
+- No sensor counts pollen. Four preload; maximum held is four. Counts after
+  pickup or release must be treated as estimates.
+
+Because the transfer is geared to the intake, running intake also runs transfer.
+We need to establish whether the blocker must remain closed during collection
+and whether opening it with intake running feeds the shooter.
+
+## Camera visibility and pipelines
+
+The last measured camera pose is level, 8.5 inches above the floor, 7.5 inches
+forward of robot center, centered horizontally. Confirm whether it is still
+fixed to the chassis, on the turret, or able to tilt.
+
+Switching pipelines changes processing, not the physical field of view. One
+camera can switch between pollen and hive tags if both fall within its view at
+their respective collection/shooting positions. If not, a different shooting
+position, changed mounting angle, adjustable mount, or separate camera is needed.
+Changing camera pitch also requires updating the intake floor-range calculation.
+
+An AprilTag pipeline normally detects tag IDs; a pipeline index is not a tag ID
+or proof that a hive is down. The pipeline/tag mapping and lowered-state rule
+must be specified from the actual field. If a tag is visible in both positions,
+presence alone is insufficient. A ty threshold also changes with camera range,
+height and pitch, so any such test needs a controlled viewing pose or calibrated
+3D geometry. Moving hive tags must not be blindly treated as stationary field-map
+landmarks for robot localization.
+
+## Gather the tag data
+
+Select **Hive Vision Setup** on the Driver Station. It requires only `limelight`
+and does not map or command motors or servos. D-pad UP/DOWN selects pipeline
+0-9 in INIT or after START. It waits for a new result matching the requested
+pipeline and ignores stale results. Telemetry lists each detected tag's ID,
+tx, ty, area, and camera-space 3D position when available.
+
+From the intended shooting position, record each hive when down and up:
+
+| Hive | Pipeline | Tag ID | Down tx/ty | Up tx/ty | Visible only when down? |
+| --- | --- | --- | --- | --- | --- |
+| To configure | | | | | |
+
+Correct tag size and appropriate 3D pipeline settings are needed for meaningful
+3D distances. The setup mode does not decide which hive is down or enable firing.
+
+## Remaining shooting inputs
+
+Before automatic firing, establish: target pipeline/tag mapping and down-state
+test; camera-to-turret geometry; turret home and travel limits or direct visual
+feedback arrangement; hood usable endpoints and gearing; shooter direction,
+encoder ticks per revolution and working shot speed; blocker calibration and
+servo travel; how intake feeds the shooter; spin-up, feed and blocker timing;
+and a known working shot distance/hood setting. No firing power, turret limits,
+or blocker/hood positions have been guessed.
+
+The planned Ivy sequence is: block transfer, find a fresh confirmed down hive,
+aim and spin up, open/feed only while aim and speed are ready, re-block/stop,
+then collect again when estimated capacity allows. The existing 20-second
+scoring/collection cutoff and final 10-second parking window remain the target
+schedule for the integrated autonomous.
+
+References: [FTC Limelight programming](https://docs.limelightvision.io/docs/docs-limelight/apis/ftc-programming)
+and [3A setup](https://docs.limelightvision.io/docs/docs-limelight/getting-started/limelight-3a).
