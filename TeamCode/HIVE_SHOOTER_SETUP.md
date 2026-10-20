@@ -8,11 +8,14 @@ intake/park autonomous is preserved while the new mechanisms are calibrated.
 - `intake`: motor, also mechanically drives the geared transfer.
 - `shooter`: shooter motor.
 - `turret`: motor; gearing, limits, homing and encoder calibration are unknown.
-- `hood`: adjustable positional servo. The stated gearing is 9/10 of a
-  300-degree servo rotation; the precise input/output relationship and linkage
-  limits still need confirmation before converting hood angles to servo positions.
-- Blocker: positional servo intended to rotate 90 degrees to block; hardware
-  name, open position, direction and total servo travel still need confirmation.
+- `hood`: may be a DC motor rather than a servo. Physical hub port, configured
+  type, encoder connection, home and travel limits need confirmation. The earlier
+  9/10-of-300-degree gearing description is not used as a servo conversion.
+  `RobotConfig.HOOD` records only the name, not an assumed device type.
+- `blocker`: positional servo (`RobotConfig.BLOCKER_SERVO`). The reported open
+  and closed angles are approximately 0 and 90 degrees, but unconfirmed. Servo
+  model, PWM/usable travel, linkage direction and calibrated normalized positions
+  are still needed; no open/close position has been commanded.
 - No sensor counts pollen. Four preload; maximum held is four. Counts after
   pickup or release must be treated as estimates.
 
@@ -23,8 +26,16 @@ and whether opening it with intake running feeds the shooter.
 ## Camera visibility and pipelines
 
 The last measured camera pose is level, 8.5 inches above the floor, 7.5 inches
-forward of robot center, centered horizontally. Confirm whether it is still
-fixed to the chassis, on the turret, or able to tilt.
+forward of robot center, centered horizontally. The camera is **fixed to the
+chassis**. Visibility of floor pollen and hive tags from a shooting position is
+not yet established. Hive pipeline numbers are **not assigned**.
+
+Because the camera does not rotate with the turret, camera tx does not shrink
+as the turret turns. Turret aiming needs calibrated turret encoder angle/home
+and the tag bearing relative to the chassis, accounting for camera and turret
+offsets. A PID loop commanding turret power from camera tx alone is unsuitable
+for this mounting arrangement. The turret encoder can be calibrated from tick
+change over a measured angular movement without knowing the gear tooth counts.
 
 Switching pipelines changes processing, not the physical field of view. One
 camera can switch between pollen and hive tags if both fall within its view at
@@ -56,6 +67,21 @@ From the intended shooting position, record each hive when down and up:
 
 Correct tag size and appropriate 3D pipeline settings are needed for meaningful
 3D distances. The setup mode does not decide which hive is down or enable firing.
+
+## Inspect the uncertain device types
+
+Select **Shooter Hardware Setup**. It lists configured types for `intake`,
+`shooter`, `turret`, `hood`, and `blocker`, and reads motor encoder ticks and
+velocity where available. It sends no motor power, servo position, or encoder
+reset commands. Missing devices are reported rather than required.
+
+Compare the reported type with the physical hub port and wiring. Configuration
+type alone does not prove what device is connected. A servo's displayed last
+command is not an angle measurement, and encoder numbers alone do not prove
+there is a connected encoder or a valid home position. Do not interpret a
+90-degree blocker movement as `setPosition(90)`; FTC positional servos use
+normalized values from 0 to 1, with actual movement determined by the servo,
+PWM configuration, and linkage calibration.
 
 ## Remaining shooting inputs
 
