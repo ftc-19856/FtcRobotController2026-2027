@@ -3,7 +3,9 @@ package org.firstinspires.ftc.teamcode.opmode;
 import static com.pedropathing.api.Paths.line;
 import static com.pedropathing.ivy.commands.Commands.instant;
 import static com.pedropathing.ivy.commands.Commands.lazy;
+import static com.pedropathing.ivy.commands.Commands.waitMs;
 import static com.pedropathing.ivy.commands.Commands.waitUntil;
+import static com.pedropathing.ivy.groups.Groups.race;
 import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import static com.pedropathing.ivy.pedro.PedroCommands.hold;
@@ -24,7 +26,10 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import java.util.function.DoubleSupplier;
 
-/** Track visible pollen with the intake running, then follow a Pedro path to park. */
+/**
+ * Empty the preloaded pollen into the garden, track visible pollen with the intake running,
+ * then follow a Pedro path to park.
+ */
 @Autonomous(name = "Pedro Pollen Collect And Park", group = "Competition")
 public final class PedroPollenAuto extends OpMode {
     public static final double COLLECTION_SECONDS = 20.0;
@@ -39,6 +44,18 @@ public final class PedroPollenAuto extends OpMode {
     public static double PARK_X = START_X;
     public static double PARK_Y = START_Y;
     public static double PARK_HEADING = START_HEADING;
+
+    // Where the robot sits, intake facing the garden, to push its pollen out. NaN means not
+    // measured yet: the garden step is skipped and the preload stays in the robot.
+    // Measured by pushing the robot from the start pose with the Localization Test, which
+    // read (84.028, 0.2271, 0.064 rad) relative to the start: 84in straight ahead.
+    public static double GARDEN_X = START_X - 0.2271;
+    public static double GARDEN_Y = START_Y + 84.028;
+    public static double GARDEN_HEADING = START_HEADING + 0.064;
+    private static final double GARDEN_DRIVE_TIMEOUT_SECONDS = 6.0;
+    // How far from the garden pose still counts as there; farther and it keeps the pollen.
+    private static final double GARDEN_TOLERANCE = 4.0;
+    private static final double EJECT_SECONDS = 1.5;
 
     private static final double MIN_AREA_PERCENT = 0.1;
     public static double CAMERA_HEIGHT = 8.5;
@@ -64,7 +81,7 @@ public final class PedroPollenAuto extends OpMode {
     private static final double POSITION_TOLERANCE = 1.5;
     private static final double HEADING_TOLERANCE = Math.toRadians(5);
 
-    enum State { TRACK, FULL, PARK, DONE }
+    enum State { GARDEN, TRACK, FULL, PARK, DONE }
 
     private final ElapsedTime autoTimer = new ElapsedTime();
     private final ElapsedTime phaseTimer = new ElapsedTime();
@@ -160,7 +177,11 @@ public final class PedroPollenAuto extends OpMode {
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose (in, deg)", "%.1f, %.1f, %.1f",
                 START_X, START_Y, Math.toDegrees(START_HEADING));
-        telemetry.addLine(hasCapacity(heldPollen) ? "Ready to intake" : "Full: intake disabled");
+        telemetry.addLine(gardenMeasured()
+                ? "Garden first, then collect"
+                : "Garden position not set: skipping the garden");
+        telemetry.addLine(hasCapacity(heldPollen) || gardenMeasured()
+                ? "Ready to intake" : "Full: intake disabled");
         telemetry.update();
     }
 
@@ -171,7 +192,9 @@ public final class PedroPollenAuto extends OpMode {
         autoTimer.reset();
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
-        routine = routineCommand(autoTimer::seconds,
+        routine = routineCommand(autoTimer::seconds, sequential(
+                lazy(this::gardenCommand)
+                        .until(() -> autoTimer.seconds() >= COLLECTION_SECONDS),
                 collectCommand(autoTimer::seconds, () -> {
                     state = hasCapacity(heldPollen) ? State.TRACK : State.FULL;
                     intake.setPower(hasCapacity(heldPollen) ? 1 : 0);
@@ -179,7 +202,7 @@ public final class PedroPollenAuto extends OpMode {
                 }, this::trackPollen, () -> {
                     stopIntake();
                     stopDrive();
-                }),
+                })),
                 lazy(this::parkCommand), this::finish);
         Scheduler.schedule(routine);
     }
@@ -350,6 +373,44 @@ public final class PedroPollenAuto extends OpMode {
                 && near(ball, lastPickupBall, 6.0)) return null;
         // Skip wall targets which cannot be reached with clearance for the next turn.
         return ball != null && pickupPose(follower.pose(), ball) != null ? ball : null;
+    }
+
+    static boolean gardenMeasured() {
+        return Double.isFinite(GARDEN_X) && Double.isFinite(GARDEN_Y)
+                && Double.isFinite(GARDEN_HEADING);
+    }
+
+    // Drives to the garden and runs the intake backwards to empty the robot, freeing its
+    // capacity for collection. Skipped when empty or when the garden hasn't been measured.
+    private Command gardenCommand() {
+        if (heldPollen <= 0 || !gardenMeasured()) return instant(() -> { });
+        state = State.GARDEN;
+        stopIntake();
+        Pose current = follower.pose();
+        Pose garden = new Pose(GARDEN_X, GARDEN_Y, GARDEN_HEADING);
+        return sequential(
+                race(sequential(
+                                follow(follower, line(current, garden).linear(current, garden)),
+                                waitUntil(() -> !follower.isBusy())),
+                        waitMs(GARDEN_DRIVE_TIMEOUT_SECONDS * 1000)),
+                lazy(() -> {
+                    // Only empty out at the garden; otherwise the pollen would land on
+                    // the field floor, so keep it and skip collecting.
+                    if (!near(follower.pose(), garden, GARDEN_TOLERANCE)) {
+                        return instant(this::stopDrive);
+                    }
+                    return sequential(
+                            instant(() -> {
+                                stopDrive();
+                                intake.setPower(-1);
+                            }),
+                            waitMs(EJECT_SECONDS * 1000),
+                            instant(() -> {
+                                stopIntake();
+                                heldPollen = 0;
+                            }));
+                }))
+                .setEnd(reason -> stopIntake());
     }
 
     private Command parkCommand() {
