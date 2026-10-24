@@ -4,12 +4,53 @@ import org.junit.Test;
 import org.junit.After;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Twist;
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.algorithm.ForesightConfig;
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.drivetrain.Drivetrain;
+import com.pedropathing.localization.MotionState;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 import com.pedropathing.ivy.Scheduler;
 import static com.pedropathing.ivy.commands.Commands.infinite;
 import static org.junit.Assert.*;
 
 public class PedroPollenAutoTest {
     @After public void clearScheduler() { Scheduler.reset(); }
+
+    @Test public void turnOnlyHoldCommandsNoTranslationEvenWhenOdometryDrifts() {
+        ForesightConfig config = Constants.foresightConfig;
+        double previousTranslation = config.holdPointTranslationalScaling.get();
+        double previousHeading = config.holdPointHeadingScaling.get();
+        try {
+            PedroPollenAuto.configureTurnOnlyHolds(config);
+            MotionState reported = MotionState.ofTwist(new Pose(55, 52, 0), new Twist(2, -1, 0.15));
+            Pose target = new Pose(50, 50, 0.5);
+            Drivetrain drivetrain = new TestDrivetrain();
+            DrivePowers turnOnly = new Foresight(config).calculateHold(
+                    drivetrain, target, reported, true, 0.02);
+            assertEquals(0, turnOnly.forward(), 1e-9);
+            assertEquals(0, turnOnly.strafe(), 1e-9);
+            assertTrue(turnOnly.turn() > 0);
+
+            // Unscaled holds (including the park hold) still correct position.
+            DrivePowers normalHold = new Foresight(config).calculateHold(
+                    drivetrain, target, reported, false, 0.02);
+            assertTrue(Math.hypot(normalHold.forward(), normalHold.strafe()) > 0.01);
+        } finally {
+            config.holdPointTranslationalScaling.set(previousTranslation);
+            config.holdPointHeadingScaling.set(previousHeading);
+        }
+    }
+
+    private static final class TestDrivetrain implements Drivetrain {
+        public void drive(DrivePowers powers, boolean manual) {}
+        public void stop() {}
+        public void stop(boolean brake) {}
+        public double maxScaling(DrivePowers current, DrivePowers delta) { return 1; }
+        public double interpolateVelocity(double forward, double lateral, double angle) { return 50; }
+        public java.util.Map<String, Object> debug() { return java.util.Collections.emptyMap(); }
+    }
 
     @Test public void startsAtCapacityAndCannotCollectWithFourPollen() {
         assertEquals(4, PedroPollenAuto.STARTING_POLLEN);

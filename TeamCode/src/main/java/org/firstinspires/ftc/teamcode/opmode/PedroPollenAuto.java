@@ -9,6 +9,7 @@ import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import static com.pedropathing.ivy.pedro.PedroCommands.hold;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.ivy.Scheduler;
 import com.pedropathing.math.Pose;
@@ -89,6 +90,15 @@ public final class PedroPollenAuto extends OpMode {
     private int heldPollen = STARTING_POLLEN;
     private boolean previousLoadUp;
     private boolean previousLoadDown;
+    private Double previousHoldTranslationScale;
+    private Double previousHoldHeadingScale;
+
+    static void configureTurnOnlyHolds(ForesightConfig config) {
+        // Only hold(pose, true) uses these multipliers. Ordinary holds and
+        // path following retain the tuned positional and heading controllers.
+        config.holdPointTranslationalScaling.set(0.0);
+        config.holdPointHeadingScaling.set(1.0);
+    }
     static boolean hasCapacity(int held) {
         return held >= 0 && held < POLLEN_CAPACITY;
     }
@@ -122,6 +132,9 @@ public final class PedroPollenAuto extends OpMode {
         // Pedro uses this setting when its drivetrain is stopped. Path-following
         // powers and Foresight tuning remain unchanged.
         Constants.drivetrainConfig.manualBrakeMode.set(true);
+        previousHoldTranslationScale = Constants.foresightConfig.holdPointTranslationalScaling.get();
+        previousHoldHeadingScale = Constants.foresightConfig.holdPointHeadingScaling.get();
+        configureTurnOnlyHolds(Constants.foresightConfig);
         follower = Constants.create(hardwareMap);
         follower.holdEnd.set(true);
         follower.setPose(new Pose(START_X, START_Y, START_HEADING));
@@ -202,6 +215,11 @@ public final class PedroPollenAuto extends OpMode {
         telemetry.addData("Estimated pollen held", "%d / %d", heldPollen, POLLEN_CAPACITY);
         if (state == State.TRACK) {
             telemetry.addData("Intake phase", intakePhase);
+            if (intakePhase == IntakePhase.SEARCH) {
+                telemetry.addData("Reported scan position drift (in)", "%.2f",
+                        Math.hypot(follower.pose().x() - scanAnchor.x(),
+                                follower.pose().y() - scanAnchor.y()));
+            }
             if (approachGoal != null) telemetry.addData("Pickup pose", approachGoal);
         }
         telemetry.addData("Pose", follower.pose());
@@ -227,14 +245,15 @@ public final class PedroPollenAuto extends OpMode {
                 if (ball != null) {
                     samples.reset();
                     // Settle briefly before sampling; do not range-measure while spinning.
-                    follower.hold(current);
+                    stopDrive();
                     enterPhase(IntakePhase.ACQUIRE);
                 } else {
                     double now = phaseTimer.seconds();
                     scanHeading += SEARCH_RADIANS_PER_SECOND * Math.max(0, now - lastScanTime);
                     lastScanTime = now;
-                    // Pedro holds the center of rotation while the camera sweeps.
-                    follower.hold(new Pose(scanAnchor.x(), scanAnchor.y(), scanHeading));
+                    // Turn only: position feedback can inject translation when
+                    // odometry reports apparent movement during rotation.
+                    follower.hold(new Pose(scanAnchor.x(), scanAnchor.y(), scanHeading), true);
                 }
                 break;
             case ACQUIRE:
@@ -251,7 +270,7 @@ public final class PedroPollenAuto extends OpMode {
                         if (approachGoal == null) {
                             beginSearch();
                         } else {
-                            follower.hold(new Pose(current.x(), current.y(), approachGoal.heading()));
+                            follower.hold(new Pose(current.x(), current.y(), approachGoal.heading()), true);
                             enterPhase(IntakePhase.ALIGN);
                         }
                         break;
@@ -319,7 +338,7 @@ public final class PedroPollenAuto extends OpMode {
         scanHeading = follower.pose().heading();
         lastScanTime = 0;
         enterPhase(IntakePhase.SEARCH);
-        follower.hold(new Pose(scanAnchor.x(), scanAnchor.y(), scanHeading));
+        follower.hold(new Pose(scanAnchor.x(), scanAnchor.y(), scanHeading), true);
     }
 
     private void beginFinish() {
@@ -476,5 +495,10 @@ public final class PedroPollenAuto extends OpMode {
         if (follower != null) stopDrive();
         stopIntake();
         if (limelight != null) limelight.stop();
+        // Do not carry this OpMode's turn-only hold option into another OpMode.
+        if (previousHoldTranslationScale != null) {
+            Constants.foresightConfig.holdPointTranslationalScaling.set(previousHoldTranslationScale);
+            Constants.foresightConfig.holdPointHeadingScaling.set(previousHoldHeadingScale);
+        }
     }
 }

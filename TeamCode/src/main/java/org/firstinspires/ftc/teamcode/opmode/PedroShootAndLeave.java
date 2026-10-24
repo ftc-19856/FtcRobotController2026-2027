@@ -6,7 +6,6 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -25,10 +24,10 @@ public final class PedroShootAndLeave extends OpMode {
     private static final Pose START = new Pose(PedroPollenAuto.START_X,
             PedroPollenAuto.START_Y, PedroPollenAuto.START_HEADING);
 
-    // Flip the sign if the flywheel spins backwards. Untested guesses until tuned on the robot.
-    public static double SHOOTER_POWER = 1.0;
+    // Untested guesses until tuned on the robot.
     private static final double SHOOTER_SPIN_UP_SECONDS = 1.5;
-    // The intake pushes pollen up into the flywheel; run it long enough to feed all four.
+    // The intake drives the transfer, pushing pollen past the open blocker into the
+    // flywheel; run it long enough to feed all four.
     private static final double FEED_SECONDS = 3.0;
     // How far to drive straight ahead after shooting. Set it to clear the starting area.
     public static double LEAVE_FORWARD_INCHES = 24.0;
@@ -39,7 +38,7 @@ public final class PedroShootAndLeave extends OpMode {
     private final ElapsedTime stateTimer = new ElapsedTime();
     private Follower follower;
     private DcMotorEx intake;
-    private DcMotorEx shooter;
+    private AutoShooter shooter;
     private State state = State.DONE;
 
     @Override
@@ -52,10 +51,7 @@ public final class PedroShootAndLeave extends OpMode {
         // Matches Pedro Pollen Collect And Park: positive power pulls pollen in.
         intake.setDirection(DcMotorSimple.Direction.REVERSE);
         intake.setPower(0);
-        shooter = hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR);
-        // A braking flywheel would jerk the robot and wear the motor; let it spin down.
-        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        shooter.setPower(0);
+        shooter = new AutoShooter(hardwareMap);
         telemetry.addLine("Aim the robot at the goal. Keep still while Pinpoint calibrates.");
         telemetry.update();
     }
@@ -68,7 +64,8 @@ public final class PedroShootAndLeave extends OpMode {
     @Override
     public void start() {
         follower.setPose(START);
-        shooter.setPower(SHOOTER_POWER);
+        shooter.start();
+        shooter.spinUp();
         enter(State.SPIN_UP);
     }
 
@@ -77,6 +74,7 @@ public final class PedroShootAndLeave extends OpMode {
         switch (state) {
             case SPIN_UP:
                 if (stateTimer.seconds() >= SHOOTER_SPIN_UP_SECONDS) {
+                    shooter.openBlocker();
                     intake.setPower(1);
                     enter(State.FEED);
                 }
@@ -84,7 +82,7 @@ public final class PedroShootAndLeave extends OpMode {
             case FEED:
                 if (stateTimer.seconds() >= FEED_SECONDS) {
                     intake.setPower(0);
-                    shooter.setPower(0);
+                    shooter.finishShooting();
                     Pose current = follower.pose();
                     Pose leave = new Pose(
                             current.x() + LEAVE_FORWARD_INCHES * Math.cos(current.heading()),
@@ -123,6 +121,6 @@ public final class PedroShootAndLeave extends OpMode {
     public void stop() {
         if (follower != null) stopDrive();
         if (intake != null) intake.setPower(0);
-        if (shooter != null) shooter.setPower(0);
+        if (shooter != null) shooter.stop();
     }
 }

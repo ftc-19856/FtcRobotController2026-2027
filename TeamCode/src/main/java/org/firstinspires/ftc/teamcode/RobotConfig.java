@@ -9,7 +9,9 @@ public final class RobotConfig {
     public static final String INTAKE_MOTOR = "intake";
     public static final String SHOOTER_MOTOR = "shooter";
     public static final String TURRET_MOTOR = "turret";
-    public static final String HOOD_SERVO = "hood";
+    // Device type is being confirmed; the intake autonomous does not map the hood.
+    public static final String HOOD = "hood";
+    public static final String BLOCKER_SERVO = "blocker";
     public static final String IMU = "imu";
     public static final String PINPOINT = "pinpoint";
     public static final String LIMELIGHT = "limelight";
