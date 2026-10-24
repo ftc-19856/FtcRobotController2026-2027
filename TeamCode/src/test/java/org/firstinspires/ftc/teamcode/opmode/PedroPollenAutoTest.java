@@ -153,11 +153,11 @@ public class PedroPollenAutoTest {
     }
 
     @Test public void gardenIsAbout84InchesStraightAheadOfTheStartInsideTheField() {
-        assertTrue(PedroPollenAuto.gardenMeasured());
+        assertTrue(garden.gardenMeasured());
         // The start faces +y (90 degrees), so straight ahead is up the field.
-        assertEquals(84, PedroPollenAuto.GARDEN_Y - PedroPollenAuto.START_Y, 0.1);
-        assertEquals(0, PedroPollenAuto.GARDEN_X - PedroPollenAuto.START_X, 0.5);
-        assertEquals(90, Math.toDegrees(PedroPollenAuto.GARDEN_HEADING), 5);
-        assertTrue(PedroPollenAuto.GARDEN_X + 9 <= 144 && PedroPollenAuto.GARDEN_Y + 9 <= 144);
+        assertEquals(84, garden.GARDEN_Y - garden.START_Y, 0.1);
+        assertEquals(0, garden.GARDEN_X - garden.START_X, 0.5);
+        assertEquals(90, Math.toDegrees(garden.GARDEN_HEADING), 5);
+        assertTrue(garden.GARDEN_X + 9 <= 144 && garden.GARDEN_Y + 9 <= 144);
     }
 }
