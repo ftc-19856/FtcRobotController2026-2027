@@ -21,14 +21,14 @@ reset. Hardware setup and reference capture happen only when START is pressed.
 - Positional servo `blocker` keeps its existing command at START. **Gamepad 1 A**
   toggles between that starting command and an offset command. Holding A cannot
   repeatedly toggle it. The starting command is not assumed to mean open or closed.
-- The requested offset is **0.2** in normalized servo units. Left is the physical
+- The default offset is **-0.2** from the captured starting command. Left is the physical
   blocking side and right is clearance; logical servo direction depends on its
   installation. **B** reverses its
   direction while at the starting position. Return with A before reversing if
   already offset. B does not command any servo movement by itself.
 
 An out-of-range offset is rejected rather than clipped. For example, a starting
-command of 0.9 cannot move to 1.1; press B to use 0.7 instead. If the SDK reports
+command of 0.1 cannot move to -0.1; press B to use 0.3 instead. If the SDK reports
 no known starting command, toggling is disabled and telemetry explains why.
 There is no guessed fallback or automatic movement to a reference position.
 

@@ -124,7 +124,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
     static final class RelativeBlockerToggle {
         final double startPosition;
         boolean offsetActive;
-        int direction = 1;
+        int direction = -1;
         private boolean previousA;
         private boolean previousB;
 
