@@ -4,6 +4,15 @@ Select **Fixed Turret Intake Shooter** under TeleOp. `init()` is completely
 empty: no hardware lookup, motor power, servo movement, calibration, or encoder
 reset. Hardware setup and reference capture happen only when START is pressed.
 
+- **Left stick:** forward/back and strafe, relative to the robot.
+- **Right stick X:** turn (right stick right turns clockwise).
+- **Left bumper:** 35% slow driving for precise positioning.
+- Driving uses Pedro's `Mecanum` with `Constants.drivetrainConfig`, preserving
+  the exact motor names and direction settings used by autonomous. There is no
+  duplicate wheel-direction configuration, IMU calibration, or pose reset.
+- Stick inputs have a 0.05 deadband, are normalized for combined driving, then
+  scaled for slow mode. Mechanism powers do not change in slow mode.
+
 - Intake/transfer motor `intake` runs continuously at **-1.0** after START.
 - Shooter motor `shooter` runs continuously at **-1.0** after START.
 - Turret motor `turret` holds the encoder position captured at START, using
@@ -30,9 +39,11 @@ normalized **0.2**, rather than a guaranteed angle. Actual motion depends on
 the configured PWM endpoints, range scaling, and mechanism. This mode preserves
 the existing servo direction and PWM/range settings.
 
-This is a stationary mechanism TeleOp: it does not initialize or drive the
-chassis, use vision/Pedro, or command the hood. STOP zeros all three motor powers
-and leaves the blocker at its last selected command. The -1 intake/shooter
+This is a driving TeleOp with robot-centric Pedro mecanum control. Turret
+"fixed" means fixed relative to the chassis, not a field-direction lock.
+It does not use vision or command the hood. STOP brakes the drivetrain, zeros
+all three mechanism motor powers and leaves the blocker at its last selected
+command. The -1 intake/shooter
 directions match the user's existing `TestIntakeTransferShooter` working copy.
 That staged/uncommitted file is preserved separately from this new mode.
 
