@@ -6,12 +6,13 @@ reset. Hardware setup and reference capture happen only when START is pressed.
 
 - **Left stick:** forward/back and strafe, relative to the robot.
 - **Right stick X:** turn (right stick right turns clockwise).
-- **Left bumper:** 35% slow driving for precise positioning.
-- Driving uses Pedro's `Mecanum` with `Constants.drivetrainConfig`, preserving
-  the exact motor names and direction settings used by autonomous. There is no
-  duplicate wheel-direction configuration, IMU calibration, or pose reset.
-- Stick inputs have a 0.05 deadband, are normalized for combined driving, then
-  scaled for slow mode. Mechanism powers do not change in slow mode.
+- Driving matches the current `StarterTeleOp` exactly: `forward = -left_stick_y`,
+  `right = left_stick_x`, `clockwise = right_stick_x`, sent to
+  `MecanumDrive.driveRobotCentric(forward, right, clockwise)`. There is no custom
+  slow mode or additional deadband/scaling. The shared drivetrain handles wheel
+  mixing, normalization, motor directions and BRAKE behavior.
+- Like Starter TeleOp, it constructs `MecanumDrive` and resets IMU yaw. Both
+  happen at START here so INIT remains empty. No Pinpoint pose reset is used.
 
 - Intake/transfer motor `intake` runs continuously at **-1.0** after START.
 - Shooter motor `shooter` runs continuously at **-1.0** after START.
@@ -39,7 +40,7 @@ normalized **0.2**, rather than a guaranteed angle. Actual motion depends on
 the configured PWM endpoints, range scaling, and mechanism. This mode preserves
 the existing servo direction and PWM/range settings.
 
-This is a driving TeleOp with robot-centric Pedro mecanum control. Turret
+This is a driving TeleOp using the same robot-centric drivetrain as Starter TeleOp. Turret
 "fixed" means fixed relative to the chassis, not a field-direction lock.
 It does not use vision or command the hood. STOP brakes the drivetrain, zeros
 all three mechanism motor powers and leaves the blocker at its last selected
