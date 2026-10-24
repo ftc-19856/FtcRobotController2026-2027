@@ -5,24 +5,29 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import org.firstinspires.ftc.teamcode.RobotConfig;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive.WheelPowers;
+import org.firstinspires.ftc.teamcode.util.Toggle;
 
-/** Robot-centric driving with continuous intake/shooter and a fixed turret. */
+/** Robot-centric driving with toggleable intake/shooter and a fixed turret. */
 @TeleOp(name = "Fixed Turret Intake Shooter", group = "Competition")
 public final class FixedTurretIntakeShooterTeleOp extends OpMode {
     public static final double INTAKE_POWER = -1.0;
     public static final double SHOOTER_POWER = -1.0;
     public static final double TURRET_HOLD_POWER = 0.2;
-    public static final double BLOCKER_POSITION_OFFSET = 0.2;
+    public static final double BLOCKER_BLOCKED_POSITION = 0.0;
+    public static final double BLOCKER_CLEAR_POSITION = 0.2;
 
     private DcMotor intake;
     private MecanumDrive drive;
     private DcMotor shooter;
     private DcMotor turret;
     private Servo blocker;
-    private RelativeBlockerToggle blockerToggle;
+    private BlockerToggle blockerToggle;
+    private Toggle intakeToggle;
+    private Toggle shooterToggle;
     private int turretHoldTicks;
     private boolean running;
 
@@ -42,9 +47,11 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);
         blocker = hardwareMap.get(Servo.class, RobotConfig.BLOCKER_SERVO);
 
-        // Capture the last servo command without moving it. This is not an
-        // absolute angle measurement and is not inferred from a mechanical stop.
-        blockerToggle = new RelativeBlockerToggle(blocker.getPosition(), gamepad1.a, gamepad1.b);
+        // Infer the initial toggle state if a command is known. No command is
+        // sent until A/B is pressed, and an unknown starting value cannot disable it.
+        blockerToggle = new BlockerToggle(blocker.getPosition(), gamepad1.a, gamepad1.b);
+        intakeToggle = new Toggle(false, gamepad1.x);
+        shooterToggle = new Toggle(false, gamepad1.y);
 
         intake.setPower(0);
         shooter.setPower(0);
@@ -60,8 +67,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         turret.setTargetPosition(turretHoldTicks);
         turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         turret.setPower(TURRET_HOLD_POWER);
-        intake.setPower(INTAKE_POWER);
-        shooter.setPower(SHOOTER_POWER);
+        // Intake and shooter start off; X and Y independently toggle them.
         running = true;
     }
 
@@ -72,29 +78,29 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         double right = gamepad1.left_stick_x;
         double clockwise = gamepad1.right_stick_x;
         WheelPowers powers = drive.driveRobotCentric(forward, right, clockwise);
-        intake.setPower(INTAKE_POWER);
-        shooter.setPower(SHOOTER_POWER);
+        intakeToggle.update(gamepad1.x);
+        shooterToggle.update(gamepad1.y);
+        intake.setPower(intakeToggle.get() ? INTAKE_POWER : 0);
+        shooter.setPower(shooterToggle.get() ? SHOOTER_POWER : 0);
         turret.setPower(TURRET_HOLD_POWER);
         double command = blockerToggle.update(gamepad1.a, gamepad1.b);
-        if (Double.isFinite(command)) blocker.setPosition(command);
+        if (Double.isFinite(command)) {
+            blocker.setPosition(command);
+            if (blocker instanceof ServoImplEx) ((ServoImplEx) blocker).setPwmEnable();
+        }
 
         telemetry.addLine("Left stick: move | Right stick: turn (same as Starter TeleOp)");
-        telemetry.addLine("A: toggle blocker | B: reverse blocker direction at starting position");
+        telemetry.addLine("A: toggle blocker (0.0 / 0.2) | B: block (0.0)");
+        telemetry.addLine("X: intake toggle | Y: shooter toggle");
         telemetry.addData("Yaw (rad)", "%.3f", drive.getYawRadians());
         telemetry.addData("Drive FL/FR", "%.2f / %.2f", powers.frontLeftMotor, powers.frontRightMotor);
         telemetry.addData("Drive BL/BR", "%.2f / %.2f", powers.backLeft, powers.backRight);
-        telemetry.addData("Intake / shooter power", "%.1f / %.1f", INTAKE_POWER, SHOOTER_POWER);
+        telemetry.addData("Intake", intakeToggle.get() ? "ON" : "OFF");
+        telemetry.addData("Shooter", shooterToggle.get() ? "ON" : "OFF");
         telemetry.addData("Turret hold / actual ticks", "%d / %d",
                 turretHoldTicks, turret.getCurrentPosition());
-        telemetry.addData("Blocker state", blockerToggle.offsetActive ? "OFFSET POSITION" : "START POSITION");
-        telemetry.addData("Blocker starting command", blockerToggle.startPosition);
-        telemetry.addData("Blocker offset command", blockerToggle.offsetPosition());
-        telemetry.addData("Toggle direction", blockerToggle.direction > 0 ? "+0.2 position" : "-0.2 position");
-        if (!validPosition(blockerToggle.startPosition)) {
-            telemetry.addLine("No known starting servo command. Toggle disabled; no position was guessed.");
-        } else if (!validPosition(blockerToggle.offsetPosition())) {
-            telemetry.addLine("0.2 offset exceeds servo range. Press B to reverse direction.");
-        }
+        telemetry.addData("Blocker target", Double.isFinite(blockerToggle.lastCommand)
+                ? blockerToggle.lastCommand : "not commanded yet");
         telemetry.update();
     }
 
@@ -102,37 +108,34 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         return Double.isFinite(position) && position >= 0 && position <= 1;
     }
 
-    static final class RelativeBlockerToggle {
-        final double startPosition;
-        boolean offsetActive;
-        int direction = -1;
+    static final class BlockerToggle {
+        private boolean blocked;
         private boolean previousA;
         private boolean previousB;
+        double lastCommand = Double.NaN;
 
-        RelativeBlockerToggle(double startPosition, boolean aHeld, boolean bHeld) {
-            this.startPosition = startPosition;
+        BlockerToggle(double initialCommand, boolean aHeld, boolean bHeld) {
+            blocked = !validPosition(initialCommand)
+                    || Math.abs(initialCommand - BLOCKER_BLOCKED_POSITION)
+                    <= Math.abs(initialCommand - BLOCKER_CLEAR_POSITION);
             previousA = aHeld;
             previousB = bHeld;
         }
 
-        double offsetPosition() {
-            return startPosition + direction * BLOCKER_POSITION_OFFSET;
-        }
-
         double update(boolean a, boolean b) {
-            boolean reverse = b && !previousB;
-            boolean toggle = a && !previousA;
+            boolean blockPressed = b && !previousB;
+            boolean togglePressed = a && !previousA;
             previousA = a;
             previousB = b;
-            // Changing direction while offset would unexpectedly cross the
-            // starting position. Require a return to the starting position first.
-            if (reverse && !offsetActive) direction = -direction;
-            if (!toggle || b || !validPosition(startPosition)) return Double.NaN;
-            double next = offsetActive ? startPosition : offsetPosition();
-            // Never clip an out-of-range command into a shorter, misleading move.
-            if (!validPosition(next)) return Double.NaN;
-            offsetActive = !offsetActive;
-            return next;
+            if (blockPressed) {
+                blocked = true;
+            } else if (togglePressed && !b) {
+                blocked = !blocked;
+            } else {
+                return Double.NaN;
+            }
+            lastCommand = blocked ? BLOCKER_BLOCKED_POSITION : BLOCKER_CLEAR_POSITION;
+            return lastCommand;
         }
     }
 
@@ -143,6 +146,6 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         if (intake != null) intake.setPower(0);
         if (shooter != null) shooter.setPower(0);
         if (turret != null) turret.setPower(0);
-        // Leave the blocker at its last selected position; do not guess open/closed.
+        // Leave the blocker at its last commanded position.
     }
 }

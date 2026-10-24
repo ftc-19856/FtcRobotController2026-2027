@@ -14,31 +14,29 @@ reset. Hardware setup and reference capture happen only when START is pressed.
 - Like Starter TeleOp, it constructs `MecanumDrive` and resets IMU yaw. Both
   happen at START here so INIT remains empty. No Pinpoint pose reset is used.
 
-- Intake/transfer motor `intake` runs continuously at **-1.0** after START.
-- Shooter motor `shooter` runs continuously at **-1.0** after START.
+- **X:** toggle intake/transfer motor `intake` between **-1.0** and off.
+- **Y:** independently toggle shooter motor `shooter` between **-1.0** and off.
+- Both start **off**. Holding a button cannot repeatedly toggle, and buttons
+  held across START must be released and pressed again before switching on.
 - Turret motor `turret` holds the encoder position captured at START, using
   `RUN_TO_POSITION`, BRAKE and a maximum holding power of **0.2**. No encoder
   reset or turret home movement is performed; its encoder must be connected.
-- Positional servo `blocker` keeps its existing command at START. **Gamepad 1 A**
-  toggles between that starting command and an offset command. Holding A cannot
-  repeatedly toggle it. The starting command is not assumed to mean open or closed.
-- The default offset is **-0.2** from the captured starting command. Left is the physical
-  blocking side and right is clearance; logical servo direction depends on its
-  installation. **B** reverses its
-  direction while at the starting position. Return with A before reversing if
-  already offset. B does not command any servo movement by itself.
+- **A:** toggle positional servo `blocker` between **0.0 (blocking)** and
+  **0.2 (clear)**. **B:** directly command **0.0 (blocking)**, with priority if
+  A and B are pressed together. These are configured logical endpoints, not
+  measured/calibrated physical angles; verify that 0.0 is the blocking side.
+- No servo command is sent during INIT or at START. The starting command is
+  used only to infer toggle state. If it is unknown, A still commands 0.2 and
+  B still commands 0.0, rather than disabling servo control. Held buttons across
+  START require release and a new press. Holding a button cannot chatter.
+- Each button movement explicitly enables servo PWM when the controller supports
+  `ServoImplEx`. The previous relative-position/range rejection is removed.
 
-An out-of-range offset is rejected rather than clipped. For example, a starting
-command of 0.1 cannot move to -0.1; press B to use 0.3 instead. If the SDK reports
-no known starting command, toggling is disabled and telemetry explains why.
-There is no guessed fallback or automatic movement to a reference position.
-
-`Servo.getPosition()` is the **last commanded logical position**, not measured
-physical angle. It cannot detect hand-positioning, slipping, or a power-up angle.
-The servo is reported as a 300-degree model, but the requested move is now a
-normalized **0.2**, rather than a guaranteed angle. Actual motion depends on
-the configured PWM endpoints, range scaling, and mechanism. This mode preserves
-the existing servo direction and PWM/range settings.
+`Servo.getPosition()` is the last commanded value, not measured angle. This
+mode does not change servo PWM endpoints, range scaling or direction. Adjust
+`BLOCKER_BLOCKED_POSITION` and `BLOCKER_CLEAR_POSITION` if the actual mechanism
+requires different endpoints. If direct commands still produce no physical
+motion, inspect the configured servo port, connection and power.
 
 This is a driving TeleOp using the same robot-centric drivetrain as Starter TeleOp. Turret
 "fixed" means fixed relative to the chassis, not a field-direction lock.
