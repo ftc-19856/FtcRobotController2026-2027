@@ -21,16 +21,13 @@ reset. Hardware setup and reference capture happen only when START is pressed.
 - Turret motor `turret` holds the encoder position captured at START, using
   `RUN_TO_POSITION`, BRAKE and a maximum holding power of **0.2**. No encoder
   reset or turret home movement is performed; its encoder must be connected.
-- **A:** toggle positional servo `blocker` between **0.0 (blocking)** and
-  **0.2 (clear)**. **B:** directly command **0.0 (blocking)**, with priority if
-  A and B are pressed together. These are configured logical endpoints, not
-  measured/calibrated physical angles; verify that 0.0 is the blocking side.
-- No servo command is sent during INIT or at START. The starting command is
-  used only to infer toggle state. If it is unknown, A still commands 0.2 and
-  B still commands 0.0, rather than disabling servo control. Held buttons across
-  START require release and a new press. Holding a button cannot chatter.
-- Each button movement explicitly enables servo PWM when the controller supports
-  `ServoImplEx`. The previous relative-position/range rejection is removed.
+- **Hold A:** move positional servo `blocker` to the **0.2 ready-to-shoot position**.
+  Release A to return it to **0.0 blocking**. B has no function. This is a plain
+  `if (gamepad1.a) ... else ...` in `loop()`, with no blocker toggle or helper.
+- No servo command is sent during INIT or at START. The first active loop
+  applies the current button state; without A held, it commands closed. No
+  starting-position estimate is needed. PWM is enabled when supported by
+  `ServoImplEx`. The physical endpoint calibration still needs verification.
 
 `Servo.getPosition()` is the last commanded value, not measured angle. This
 mode does not change servo PWM endpoints, range scaling or direction. Adjust
@@ -41,8 +38,7 @@ motion, inspect the configured servo port, connection and power.
 This is a driving TeleOp using the same robot-centric drivetrain as Starter TeleOp. Turret
 "fixed" means fixed relative to the chassis, not a field-direction lock.
 It does not use vision or command the hood. STOP brakes the drivetrain, zeros
-all three mechanism motor powers and leaves the blocker at its last selected
-command. The -1 intake/shooter
+all three mechanism motor powers and commands the blocker closed. The -1 intake/shooter
 directions match the user's existing `TestIntakeTransferShooter` working copy.
 That staged/uncommitted file is preserved separately from this new mode.
 
