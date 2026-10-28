@@ -133,6 +133,9 @@ public class PedroPollenShootAndPark extends OpMode {
                 instant(finish));
     }
 
+    // Field-side boundary for the entire robot, including its swept turning footprint.
+    protected double minimumFieldX() { return 0; }
+
     protected Pose startingPose() {
         return new Pose(START_X, START_Y, START_HEADING);
     }
@@ -232,6 +235,8 @@ public class PedroPollenShootAndPark extends OpMode {
         // The global cutoff also covers delayed scheduling or a stalled command.
         if (!Double.isFinite(pose.x()) || !Double.isFinite(pose.y())
                 || !Double.isFinite(pose.heading())
+                || (minimumFieldX() > 0
+                    && pose.x() <= minimumFieldX() + TURN_CLEARANCE - 1)
                 || autoTimer.seconds() >= COLLECTION_SECONDS + PARK_SECONDS) {
             if (routine != null) Scheduler.cancel(routine);
             finish();
@@ -241,6 +246,10 @@ public class PedroPollenShootAndPark extends OpMode {
         follower.update();
         telemetry.addData("State", state);
         telemetry.addData("Seconds", "%.1f", autoTimer.seconds());
+        if (minimumFieldX() > 0) {
+            telemetry.addData("Minimum field X", minimumFieldX());
+            telemetry.addData("Minimum planned center X", minimumFieldX() + TURN_CLEARANCE);
+        }
         telemetry.addData("Pollen held", "%d / %d", heldPollen, POLLEN_CAPACITY);
         if (state == State.TRACK) {
             telemetry.addData("Intake phase", intakePhase);
@@ -349,7 +358,7 @@ public class PedroPollenShootAndPark extends OpMode {
                     Pose lockedBall = samples.agreed();
                     if (lockedBall != null) {
                         activeBall = lockedBall;
-                        approachGoal = pickupPose(current, lockedBall);
+                        approachGoal = pickupPose(current, lockedBall, minimumFieldX());
                         if (approachGoal == null) {
                             beginSearch();
                         } else {
@@ -404,7 +413,7 @@ public class PedroPollenShootAndPark extends OpMode {
 
     private void beginSearch() {
         Pose current = follower.pose();
-        scanAnchor = clearancePose(current);
+        scanAnchor = clearancePose(current, minimumFieldX());
         approachGoal = null;
         activeBall = null;
         samples.reset();
@@ -450,7 +459,7 @@ public class PedroPollenShootAndPark extends OpMode {
                 && autoTimer.seconds() - lastPickupTime < 1.0
                 && near(ball, lastPickupBall, 6.0)) return null;
         // Skip wall targets which cannot be reached with clearance for the next turn.
-        return ball != null && pickupPose(follower.pose(), ball) != null ? ball : null;
+        return ball != null && pickupPose(follower.pose(), ball, minimumFieldX()) != null ? ball : null;
     }
 
     // Spins up the flywheel where the robot starts, then opens the blocker and runs the
@@ -518,11 +527,20 @@ public class PedroPollenShootAndPark extends OpMode {
     }
 
     static Pose clearancePose(Pose current) {
-        return new Pose(clamp(current.x(), TURN_CLEARANCE, FIELD_SIZE - TURN_CLEARANCE),
+        return clearancePose(current, 0);
+    }
+
+    static Pose clearancePose(Pose current, double minimumFieldX) {
+        return new Pose(clamp(current.x(), minimumFieldX + TURN_CLEARANCE, FIELD_SIZE - TURN_CLEARANCE),
                 clamp(current.y(), TURN_CLEARANCE, FIELD_SIZE - TURN_CLEARANCE), current.heading());
     }
 
     static Pose pickupPose(Pose robot, Pose ball) {
+        return pickupPose(robot, ball, 0);
+    }
+
+    static Pose pickupPose(Pose robot, Pose ball, double minimumFieldX) {
+        if (ball.x() <= minimumFieldX) return null;
         double dx = ball.x() - robot.x(), dy = ball.y() - robot.y();
         double distance = Math.hypot(dx, dy);
         if (distance < 1e-6) return null;
@@ -530,7 +548,7 @@ public class PedroPollenShootAndPark extends OpMode {
         double travel = Math.max(0, distance - INTAKE_FORWARD_OFFSET + PICKUP_OVERTRAVEL);
         Pose goal = new Pose(robot.x() + dx / distance * travel,
                 robot.y() + dy / distance * travel, heading);
-        Pose clamped = clearancePose(goal);
+        Pose clamped = clearancePose(goal, minimumFieldX);
         // Do not claim a pickup when clamping leaves the intake short of the ball.
         return near(goal, clamped, 1.0) ? clamped : null;
     }

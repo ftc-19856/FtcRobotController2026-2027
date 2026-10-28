@@ -19,6 +19,15 @@ The established park endpoints are unchanged. Since seeking can end anywhere,
 parking uses a line from the current pose rather than the old curve with a
 fixed starting point. Verify field clearance and that the return fits five seconds.
 
+**Blue side boundary:** Blue Shoot Leave Park keeps the entire 18x18 robot above
+Pedro X = 70. Search and pickup centers stay at or above about X = 83.73, allowing
+the robot's half-diagonal plus one inch of clearance when turning. Unreachable
+pollen near or across the boundary are ignored. Return and park lines have both
+endpoints on the blue side. A localization-based stop also stops all actions if
+the reported center reaches the swept-footprint limit (about X = 82.73).
+Red's collection region is unchanged. Physical clearance still depends on accurate
+localization and braking; this is not a physical barrier.
+
 ## Transfer color sensor
 
 Configure the REV V2 color sensor as **transferColor**. Distance is unused.
