@@ -28,7 +28,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import java.util.function.DoubleSupplier;
 
 /**
- * Shoot the preloaded pollen from the starting spot, track visible pollen with the intake
+ * Shoot the preloaded pollen from the configured shooting pose, track pollen with the intake
  * running, return to shoot each batch of four, then park during the final five seconds.
  * The shooter is fixed, so place the robot
  * aimed at the goal.
@@ -140,6 +140,10 @@ public class PedroPollenShootAndPark extends OpMode {
         return new Pose(START_X, START_Y, START_HEADING);
     }
 
+    protected Pose shootingTargetPose() {
+        return startingPose();
+    }
+
     protected Pose parkingPose() {
         return new Pose(PARK_X, PARK_Y, PARK_HEADING);
     }
@@ -194,21 +198,23 @@ public class PedroPollenShootAndPark extends OpMode {
         telemetry.addData("Start pose", startingPose());
         readColor();
         showColor();
-        telemetry.addLine("Shoots from here first: aim the robot at the goal.");
+        telemetry.addData("Shooting pose", shootingTargetPose());
+        telemetry.addLine("Aim the fixed turret for the shooting pose.");
         telemetry.update();
     }
 
     @Override
     public void start() {
         follower.setPose(startingPose());
-        shootingPose = startingPose();
+        shootingPose = shootingTargetPose();
         parkPose = parkingPose();
         autoTimer.reset();
         shooter.start();
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
         routine = routineCommand(autoTimer::seconds,
-                sequential(lazy(this::shootCommand), lazy(this::cycleCommand))
+                sequential(lazy(this::moveToShootingPose), lazy(this::shootCommand),
+                        lazy(this::cycleCommand))
                         .setEnd(reason -> {
                             stopIntake();
                             shooter.finishShooting();
@@ -298,9 +304,19 @@ public class PedroPollenShootAndPark extends OpMode {
                     state = State.RETURN;
                 }),
                 waitMs(POST_PICKUP_BRAKE_SECONDS * 1000),
-                lazy(() -> driveTo(shootingPose)),
+                lazy(this::moveToShootingPose),
                 lazy(this::shootCommand),
                 lazy(this::cycleCommand));
+    }
+
+    private Command moveToShootingPose() {
+        Pose current = follower.pose();
+        if (near(current, shootingPose, POSITION_TOLERANCE)
+                && Math.abs(angleError(current.heading(), shootingPose.heading())) <= HEADING_TOLERANCE) {
+            return instant(() -> {});
+        }
+        state = State.RETURN;
+        return driveTo(shootingPose);
     }
 
     private Command driveTo(Pose destination) {
@@ -462,7 +478,7 @@ public class PedroPollenShootAndPark extends OpMode {
         return ball != null && pickupPose(follower.pose(), ball, minimumFieldX()) != null ? ball : null;
     }
 
-    // Spins up the flywheel where the robot starts, then opens the blocker and runs the
+    // Spins up the flywheel at the shooting pose, then opens the blocker and runs the
     // intake to feed the preload into it, freeing capacity for collection. The blocker is
     // closed again before collecting so new pollen stays in the robot. Skipped when empty.
     private Command shootCommand() {

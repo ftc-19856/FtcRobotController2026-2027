@@ -4,17 +4,19 @@ Use **Red Shoot Leave Park** or **Blue Shoot Leave Park**. These modes now share
 the working Pedro pollen seeker with **Pedro Pollen Shoot And Park**. The plain
 Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
 
-1. Shoot the four preloads from the alliance start pose.
+1. Drive to the shooting pose, then shoot the four preloads.
 2. Seek pollen with the blocker closed and intake/transfer running.
 3. Count each stable **yellow -> not yellow** transition at `transferColor`.
    Stop and brake after a counted pickup; stop the intake at four.
-4. Return to the alliance start pose and heading, shoot, and repeat.
+4. Return to the shooting pose and heading, shoot, and repeat.
 5. At **25 seconds**, interrupt collection, returning, or shooting; close the
    blocker, stop the mechanisms, and drive to the alliance park coordinates.
    At **30 seconds**, stop driving. A partial batch stays aboard when parking.
 
-The fixed turret must be aimed at the hive at the starting pose. Red starts at
-(9.7, 32.8, 90 Pedro degrees); blue at (132, 109, 270 Pedro degrees).
+The fixed turret must be aimed at the hive at the shooting pose. Red starts and
+shoots at (9.7, 32.8, 90 Pedro degrees). Blue starts at (132, 109, 270 Pedro
+degrees), then drives to (83.9, 108.6, 270 Pedro degrees) to shoot both preloads
+and subsequent batches. It waits for the drive and heading to settle before shooting.
 The established park endpoints are unchanged. Since seeking can end anywhere,
 parking uses a line from the current pose rather than the old curve with a
 fixed starting point. Verify field clearance and that the return fits five seconds.
