@@ -192,4 +192,13 @@ public class PedroPollenAutoTest {
         double ty = -Math.toDegrees(Math.atan((8.5 - 2.85 / 2) / 40));
         assertEquals(40, PedroPollenAuto.cameraRange(ty), 1e-6);
     }
+
+    @Test public void gardenIsAbout84InchesStraightAheadOfTheStartInsideTheField() {
+        assertTrue(garden.gardenMeasured());
+        // The start faces +y (90 degrees), so straight ahead is up the field.
+        assertEquals(84, garden.GARDEN_Y - garden.START_Y, 0.1);
+        assertEquals(0, garden.GARDEN_X - garden.START_X, 0.5);
+        assertEquals(90, Math.toDegrees(garden.GARDEN_HEADING), 5);
+        assertTrue(garden.GARDEN_X + 9 <= 144 && garden.GARDEN_Y + 9 <= 144);
+    }
 }
