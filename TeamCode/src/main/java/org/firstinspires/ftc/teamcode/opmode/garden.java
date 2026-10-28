@@ -365,7 +365,11 @@ public final class garden extends OpMode {
         if (result == null || !result.isValid() || result.getStaleness() > 150
                 || result.getPipelineIndex() != RobotConfig.POLLEN_PIPELINE_INDEX
                 || !Double.isFinite(result.getTa()) || result.getTa() < MIN_AREA_PERCENT) return null;
-        Pose ball = ballFieldPose(follower.pose(), result.getTx(), result.getTy());
+        // Portrait mount: viewed head-on, the old bottom is now on the right.
+        // Raw +tx points down; raw +ty points to the robot's right.
+        double horizontal = result.getTy();
+        double vertical = -result.getTx();
+        Pose ball = ballFieldPose(follower.pose(), horizontal, vertical);
         // Give the camera time to switch away from the ball just collected;
         // otherwise a lingering detection can immediately repeat the same pickup.
         if (ball != null && lastPickupBall != null

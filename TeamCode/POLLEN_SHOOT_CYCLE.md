@@ -49,3 +49,18 @@ Shooting retains the existing timed settings: 1.5-second spin-up and 3-second
 feed. The count is reset after that feed finishes; clearing the shooter is still
 a timed assumption, not verified by the transfer sensor. Hood and turret aiming
 are unchanged. There is no hive AprilTag targeting or garden unloading.
+
+## Portrait Limelight mounting
+
+Viewed from in front of the robot looking at the lens, the camera's original
+bottom is now on the right. The Pedro pollen modes convert raw camera angles
+into robot-relative angles before ranging: horizontal = raw ty, vertical = -raw tx.
+The web stream rotation does not replace this targeting correction.
+Camera optical-center height remains assumed to be 8.5 inches, 7.5 inches forward
+of robot center, with no lateral offset and a level optical axis. Rotating the
+camera in its own plane does not introduce a downward pitch. Update those
+measurements if the remount changed them.
+
+With a floor pollen directly ahead, corrected horizontal should be near zero
+and corrected vertical should be negative. Moving the pollen toward the robot's
+right should make corrected horizontal positive. Verify this before driving.
