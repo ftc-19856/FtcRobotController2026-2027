@@ -11,6 +11,7 @@ public final class RobotConfig {
     public static final String TURRET_MOTOR = "turret";
     // Device type is being confirmed; the intake autonomous does not map the hood.
     public static final String HOOD = "hood";
+    public static final String TRANSFER_COLOR_SENSOR = "transferColor";
     public static final String BLOCKER_SERVO = "blocker";
     public static final String IMU = "imu";
     public static final String PINPOINT = "pinpoint";

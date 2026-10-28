@@ -1,0 +1,40 @@
+# Shoot, seek four, shoot again, park
+
+Use **Red Shoot Leave Park** or **Blue Shoot Leave Park**. These modes now share
+the working Pedro pollen seeker with **Pedro Pollen Shoot And Park**. The plain
+Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
+
+1. Shoot the four preloads from the alliance start pose.
+2. Seek pollen with the blocker closed and intake/transfer running.
+3. Count each stable **yellow -> not yellow** transition at `transferColor`.
+   Stop and brake after a counted pickup; stop the intake at four.
+4. Return to the alliance start pose and heading, shoot, and repeat.
+5. At **25 seconds**, interrupt collection, returning, or shooting; close the
+   blocker, stop the mechanisms, and drive to the alliance park coordinates.
+   At **30 seconds**, stop driving. A partial batch stays aboard when parking.
+
+The fixed turret must be aimed at the hive at the starting pose. Red starts at
+(9.7, 32.8, 90 Pedro degrees); blue at (132, 109, 270 Pedro degrees).
+The established park endpoints are unchanged. Since seeking can end anywhere,
+parking uses a line from the current pose rather than the old curve with a
+fixed starting point. Verify field clearance and that the return fits five seconds.
+
+## Transfer color sensor
+
+Configure the REV V2 color sensor as **transferColor**. Distance is unused.
+Watch **Transfer RGB**, **Transfer yellow**, and **Pollen held** in telemetry.
+Yellow must be true with pollen in front of the sensor and false once it clears.
+The yellow and not-yellow readings must each persist for 40 ms. The counter
+only runs while collecting; outgoing preloads and shooting do not add pollen.
+Touching pollen without a visible gap cannot be distinguished by this sensor.
+
+`YELLOW_MIN_CHANNEL` (initially 20) and `YELLOW_BLUE_RATIO` (initially 1.5) in
+`PedroPollenShootAndPark` define yellow: both red and green must meet the minimum
+and each exceed blue times the ratio. These are untested starting values; check
+real readings before running the autonomous. They are shared by both alliances.
+Pickup attempts no longer increase the count without a sensor passage.
+
+Shooting retains the existing timed settings: 1.5-second spin-up and 3-second
+feed. The count is reset after that feed finishes; clearing the shooter is still
+a timed assumption, not verified by the transfer sensor. Hood and turret aiming
+are unchanged. There is no hive AprilTag targeting or garden unloading.

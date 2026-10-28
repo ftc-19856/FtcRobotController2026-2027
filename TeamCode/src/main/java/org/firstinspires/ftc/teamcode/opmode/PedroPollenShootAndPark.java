@@ -19,6 +19,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -28,13 +29,14 @@ import java.util.function.DoubleSupplier;
 
 /**
  * Shoot the preloaded pollen from the starting spot, track visible pollen with the intake
- * running, then follow a Pedro path to park. The shooter is fixed, so place the robot
+ * running, return to shoot each batch of four, then park during the final five seconds.
+ * The shooter is fixed, so place the robot
  * aimed at the goal.
  */
 @Autonomous(name = "Pedro Pollen Shoot And Park", group = "Competition")
-public final class PedroPollenShootAndPark extends OpMode {
-    public static final double COLLECTION_SECONDS = 20.0;
-    public static final double PARK_SECONDS = 10.0;
+public class PedroPollenShootAndPark extends OpMode {
+    public static final double COLLECTION_SECONDS = 25.0;
+    public static final double PARK_SECONDS = 5.0;
     public static final int STARTING_POLLEN = 4;
     public static final int POLLEN_CAPACITY = 4;
 
@@ -76,7 +78,12 @@ public final class PedroPollenShootAndPark extends OpMode {
     private static final double POSITION_TOLERANCE = 1.5;
     private static final double HEADING_TOLERANCE = Math.toRadians(5);
 
-    enum State { SHOOT, TRACK, FULL, PARK, DONE }
+    // Raw REV color readings: both red and green must exceed blue to identify yellow.
+    // Starting values only; inspect telemetry with an empty transfer and real pollen.
+    public static int YELLOW_MIN_CHANNEL = 20;
+    public static double YELLOW_BLUE_RATIO = 1.5;
+
+    enum State { SHOOT, TRACK, RETURN, FULL, PARK, DONE }
 
     private final ElapsedTime autoTimer = new ElapsedTime();
     private final ElapsedTime phaseTimer = new ElapsedTime();
@@ -84,6 +91,11 @@ public final class PedroPollenShootAndPark extends OpMode {
     private Limelight3A limelight;
     private DcMotorEx intake;
     private AutoShooter shooter;
+    private ColorSensor transferColor;
+    private final PollenPassCounter pollenCounter = new PollenPassCounter();
+    private Pose shootingPose;
+    private int red, green, blue;
+    private boolean yellow;
     private State state = State.DONE;
     private Pose parkPose;
     private enum IntakePhase { CLEARANCE, SEARCH, ACQUIRE, ALIGN, APPROACH, FINISH, BRAKE }
@@ -97,8 +109,7 @@ public final class PedroPollenShootAndPark extends OpMode {
     private Pose lastPickupBall;
     private double lastPickupTime = Double.NEGATIVE_INFINITY;
     private Command routine;
-    // Default match preload is four. Intake tests can set the actual starting
-    // load during INIT; after START only pickup attempts change the estimate.
+    // Starts with four preloads; newly collected pollen are counted by the color sensor.
     private int heldPollen = STARTING_POLLEN;
     private boolean previousLoadUp;
     private boolean previousLoadDown;
@@ -115,27 +126,19 @@ public final class PedroPollenShootAndPark extends OpMode {
         return held >= 0 && held < POLLEN_CAPACITY;
     }
 
-    static int estimateAfterPickup(int held) {
-        return hasCapacity(held) ? held + 1 : held;
-    }
-
-    // Injectable clock/callbacks let tests verify the real Ivy command lifecycle.
-    static Command collectCommand(DoubleSupplier elapsed, Runnable start,
-            Runnable track, Runnable cleanup) {
-        return Command.build()
-                .setStart(start)
-                .setExecute(() -> {
-                    if (elapsed.getAsDouble() < COLLECTION_SECONDS) track.run();
-                })
-                .setDone(() -> elapsed.getAsDouble() >= COLLECTION_SECONDS)
-                .setEnd(reason -> cleanup.run());
-    }
-
     static Command routineCommand(DoubleSupplier elapsed, Command collect,
             Command park, Runnable finish) {
-        return sequential(collect,
+        return sequential(collect.until(() -> elapsed.getAsDouble() >= COLLECTION_SECONDS),
                 park.until(() -> elapsed.getAsDouble() >= COLLECTION_SECONDS + PARK_SECONDS),
                 instant(finish));
+    }
+
+    protected Pose startingPose() {
+        return new Pose(START_X, START_Y, START_HEADING);
+    }
+
+    protected Pose parkingPose() {
+        return new Pose(PARK_X, PARK_Y, PARK_HEADING);
     }
 
     @Override
@@ -149,11 +152,13 @@ public final class PedroPollenShootAndPark extends OpMode {
         configureTurnOnlyHolds(Constants.foresightConfig);
         follower = Constants.create(hardwareMap);
         follower.holdEnd.set(true);
-        follower.setPose(new Pose(START_X, START_Y, START_HEADING));
+        follower.setPose(startingPose());
         intake = hardwareMap.get(DcMotorEx.class, RobotConfig.INTAKE_MOTOR);
         intake.setPower(0);
         intake.setDirection(DcMotorSimple.Direction.REVERSE);
         shooter = new AutoShooter(hardwareMap);
+        transferColor = hardwareMap.get(ColorSensor.class, RobotConfig.TRANSFER_COLOR_SENSOR);
+        transferColor.enableLed(true);
         heldPollen = STARTING_POLLEN;
         previousLoadUp = false;
         previousLoadDown = false;
@@ -162,8 +167,7 @@ public final class PedroPollenShootAndPark extends OpMode {
         limelight.start();
         telemetry.addLine("Intake test: set actual starting load with D-pad UP/DOWN before START.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
-        telemetry.addData("Start pose (in, deg)", "%.1f, %.1f, %.1f",
-                START_X, START_Y, Math.toDegrees(START_HEADING));
+        telemetry.addData("Start pose", startingPose());
         telemetry.addData("Robot size (in)", "%.0f x %.0f",
                 RobotConfig.ROBOT_LENGTH_INCHES, RobotConfig.ROBOT_WIDTH_INCHES);
         telemetry.addLine("Keep still while Pinpoint calibrates.");
@@ -184,37 +188,46 @@ public final class PedroPollenShootAndPark extends OpMode {
         follower.update();
         telemetry.addLine("D-pad UP/DOWN: set actual starting pollen; empty robot = 0.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
-        telemetry.addData("Start pose (in, deg)", "%.1f, %.1f, %.1f",
-                START_X, START_Y, Math.toDegrees(START_HEADING));
+        telemetry.addData("Start pose", startingPose());
+        readColor();
+        showColor();
         telemetry.addLine("Shoots from here first: aim the robot at the goal.");
         telemetry.update();
     }
 
     @Override
     public void start() {
-        follower.setPose(new Pose(START_X, START_Y, START_HEADING));
-        parkPose = new Pose(PARK_X, PARK_Y, PARK_HEADING);
+        follower.setPose(startingPose());
+        shootingPose = startingPose();
+        parkPose = parkingPose();
         autoTimer.reset();
         shooter.start();
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
-        routine = routineCommand(autoTimer::seconds, sequential(
-                lazy(this::shootCommand)
-                        .until(() -> autoTimer.seconds() >= COLLECTION_SECONDS),
-                collectCommand(autoTimer::seconds, () -> {
-                    state = hasCapacity(heldPollen) ? State.TRACK : State.FULL;
-                    intake.setPower(hasCapacity(heldPollen) ? 1 : 0);
-                    if (hasCapacity(heldPollen)) beginSearch();
-                }, this::trackPollen, () -> {
-                    stopIntake();
-                    stopDrive();
-                })),
+        routine = routineCommand(autoTimer::seconds,
+                sequential(lazy(this::shootCommand), lazy(this::cycleCommand))
+                        .setEnd(reason -> {
+                            stopIntake();
+                            shooter.finishShooting();
+                            stopDrive();
+                        }),
                 lazy(this::parkCommand), this::finish);
         Scheduler.schedule(routine);
     }
 
     @Override
     public void loop() {
+        readColor();
+        int previousCount = pollenCounter.count();
+        pollenCounter.update(yellow, state == State.TRACK, autoTimer.seconds());
+        if (state == State.TRACK && pollenCounter.count() > previousCount) {
+            heldPollen = pollenCounter.count();
+            lastPickupBall = activeBall;
+            lastPickupTime = autoTimer.seconds();
+            stopDrive();
+            enterPhase(IntakePhase.BRAKE);
+            if (!hasCapacity(heldPollen)) stopIntake();
+        }
         Pose pose = follower.pose();
         // The global cutoff also covers delayed scheduling or a stalled command.
         if (!Double.isFinite(pose.x()) || !Double.isFinite(pose.y())
@@ -228,7 +241,7 @@ public final class PedroPollenShootAndPark extends OpMode {
         follower.update();
         telemetry.addData("State", state);
         telemetry.addData("Seconds", "%.1f", autoTimer.seconds());
-        telemetry.addData("Estimated pollen held", "%d / %d", heldPollen, POLLEN_CAPACITY);
+        telemetry.addData("Pollen held", "%d / %d", heldPollen, POLLEN_CAPACITY);
         if (state == State.TRACK) {
             telemetry.addData("Intake phase", intakePhase);
             if (intakePhase == IntakePhase.SEARCH) {
@@ -238,8 +251,62 @@ public final class PedroPollenShootAndPark extends OpMode {
             }
             if (approachGoal != null) telemetry.addData("Pickup pose", approachGoal);
         }
+        showColor();
         telemetry.addData("Pose", follower.pose());
         telemetry.update();
+    }
+
+    private void readColor() {
+        red = transferColor.red();
+        green = transferColor.green();
+        blue = transferColor.blue();
+        yellow = isYellow(red, green, blue);
+    }
+
+    static boolean isYellow(int red, int green, int blue) {
+        return red >= YELLOW_MIN_CHANNEL && green >= YELLOW_MIN_CHANNEL
+                && red > blue * YELLOW_BLUE_RATIO && green > blue * YELLOW_BLUE_RATIO;
+    }
+
+    private void showColor() {
+        telemetry.addData("Transfer RGB", "%d / %d / %d", red, green, blue);
+        telemetry.addData("Transfer yellow", yellow);
+        telemetry.addLine("Yellow should be true only while pollen passes the sensor.");
+    }
+
+    private Command cycleCommand() {
+        return sequential(
+                Command.build().setStart(() -> {
+                    pollenCounter.reset();
+                    heldPollen = 0;
+                    state = State.TRACK;
+                    beginSearch();
+                }).setExecute(this::trackPollen)
+                        .setDone(() -> !hasCapacity(heldPollen)),
+                instant(() -> {
+                    stopIntake();
+                    stopDrive();
+                    state = State.RETURN;
+                }),
+                waitMs(POST_PICKUP_BRAKE_SECONDS * 1000),
+                lazy(() -> driveTo(shootingPose)),
+                lazy(this::shootCommand),
+                lazy(this::cycleCommand));
+    }
+
+    private Command driveTo(Pose destination) {
+        Pose current = follower.pose();
+        if (near(current, destination, POSITION_TOLERANCE)) {
+            return sequential(hold(follower, destination),
+                    waitUntil(() -> near(follower.pose(), destination, POSITION_TOLERANCE)
+                            && Math.abs(angleError(follower.pose().heading(), destination.heading()))
+                            <= HEADING_TOLERANCE));
+        }
+        return sequential(follow(follower, line(current, destination).linear(current, destination)),
+                waitUntil(() -> !follower.isBusy()
+                        && near(follower.pose(), destination, POSITION_TOLERANCE)
+                        && Math.abs(angleError(follower.pose().heading(), destination.heading()))
+                        <= HEADING_TOLERANCE));
     }
 
     private void trackPollen() {
@@ -317,7 +384,6 @@ public final class PedroPollenShootAndPark extends OpMode {
                 break;
             case FINISH:
                 if (phaseTimer.seconds() >= FINISH_PICKUP_SECONDS) {
-                    heldPollen = estimateAfterPickup(heldPollen);
                     lastPickupBall = activeBall;
                     lastPickupTime = autoTimer.seconds();
                     stopDrive();
@@ -435,6 +501,7 @@ public final class PedroPollenShootAndPark extends OpMode {
     private void finish() {
         state = State.DONE;
         stopIntake();
+        shooter.finishShooting();
         stopDrive();
     }
 
@@ -532,7 +599,10 @@ public final class PedroPollenShootAndPark extends OpMode {
         Scheduler.reset();
         if (follower != null) stopDrive();
         stopIntake();
-        if (shooter != null) shooter.stop();
+        if (shooter != null) {
+            shooter.finishShooting();
+            shooter.stop();
+        }
         if (limelight != null) limelight.stop();
         // Do not carry this OpMode's turn-only hold option into another OpMode.
         if (previousHoldTranslationScale != null) {
