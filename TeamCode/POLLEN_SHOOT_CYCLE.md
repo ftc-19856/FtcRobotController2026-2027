@@ -30,7 +30,8 @@ Pedro X = 70. Search and pickup centers stay at or above about X = 83.73, allowi
 the robot's half-diagonal plus one inch of clearance when turning. Unreachable
 pollen near or across the boundary are ignored. Return and park lines have both
 endpoints on the blue side. A localization-based stop also stops all actions if
-the reported center reaches the swept-footprint limit (about X = 82.73).
+the reported robot footprint reaches X = 70, using its actual heading. At 270
+degrees this means center X = 79; at 45 degrees it is about X = 82.73.
 Red's collection region is unchanged. Physical clearance still depends on accurate
 localization and braking; this is not a physical barrier.
 
@@ -68,3 +69,11 @@ measurements if the remount changed them.
 With a floor pollen directly ahead, corrected horizontal should be near zero
 and corrected vertical should be negative. Moving the pollen toward the robot's
 right should make corrected horizontal positive. Verify this before driving.
+
+## Stop diagnostics
+
+Telemetry shows Stop reason when the routine ends: BLUE X BOUNDARY, INVALID POSE,
+30 SECOND STOP, or ROUTINE COMPLETE. During RETURN, distance and heading error to
+the shooting pose are shown. A boundary stop cancels the run, so it will not
+collect or park afterward. The boundary stop now uses the robot's actual heading,
+so an aligned approach is not stopped based on its larger diagonal turning radius.

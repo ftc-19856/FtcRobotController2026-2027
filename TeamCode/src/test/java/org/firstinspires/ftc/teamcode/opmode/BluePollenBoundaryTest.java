@@ -32,4 +32,16 @@ public class BluePollenBoundaryTest {
         Pose red = PedroPollenShootAndPark.clearancePose(new Pose(30, 80));
         assertEquals(30, red.x(), 1e-9);
     }
+
+    @Test public void straightShootingApproachDoesNotUseDiagonalFootprint() {
+        // Previously this normal 1.4-inch endpoint overshoot permanently aborted auto.
+        assertFalse(PedroPollenShootAndPark.outsideSideBoundary(
+                new Pose(82.5, 108.6, Math.toRadians(270)), BOUNDARY));
+        assertTrue(PedroPollenShootAndPark.outsideSideBoundary(
+                new Pose(79, 108.6, Math.toRadians(270)), BOUNDARY));
+        assertTrue(PedroPollenShootAndPark.outsideSideBoundary(
+                new Pose(82.5, 108.6, Math.toRadians(45)), BOUNDARY));
+        assertFalse(PedroPollenShootAndPark.outsideSideBoundary(
+                new Pose(20, 80, 0), 0));
+    }
 }

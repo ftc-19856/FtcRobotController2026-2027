@@ -97,6 +97,7 @@ public class PedroPollenShootAndPark extends OpMode {
     private int red, green, blue;
     private boolean yellow;
     private State state = State.DONE;
+    private String stopReason = "NONE";
     private Pose parkPose;
     private enum IntakePhase { CLEARANCE, SEARCH, ACQUIRE, ALIGN, APPROACH, FINISH, BRAKE }
     private IntakePhase intakePhase;
@@ -211,6 +212,7 @@ public class PedroPollenShootAndPark extends OpMode {
         shootingPose = shootingTargetPose();
         parkPose = parkingPose();
         autoTimer.reset();
+        stopReason = "NONE";
         shooter.start(holdTurretDuringAuto());
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
@@ -240,19 +242,26 @@ public class PedroPollenShootAndPark extends OpMode {
             if (!hasCapacity(heldPollen)) stopIntake();
         }
         Pose pose = follower.pose();
-        // The global cutoff also covers delayed scheduling or a stalled command.
+        // Record why execution stopped instead of silently displaying DONE.
         if (!Double.isFinite(pose.x()) || !Double.isFinite(pose.y())
-                || !Double.isFinite(pose.heading())
-                || (minimumFieldX() > 0
-                    && pose.x() <= minimumFieldX() + TURN_CLEARANCE - 1)
-                || autoTimer.seconds() >= COLLECTION_SECONDS + PARK_SECONDS) {
-            if (routine != null) Scheduler.cancel(routine);
-            finish();
+                || !Double.isFinite(pose.heading())) {
+            cancelAndFinish("INVALID POSE");
+        } else if (outsideSideBoundary(pose, minimumFieldX())) {
+            cancelAndFinish("BLUE X BOUNDARY");
+        } else if (autoTimer.seconds() >= COLLECTION_SECONDS + PARK_SECONDS) {
+            cancelAndFinish("30 SECOND STOP");
         } else {
             Scheduler.execute();
         }
         follower.update();
         telemetry.addData("State", state);
+        telemetry.addData("Stop reason", stopReason);
+        if (state == State.RETURN) {
+            telemetry.addData("Distance to shooting pose (in)", "%.2f",
+                    Math.hypot(pose.x() - shootingPose.x(), pose.y() - shootingPose.y()));
+            telemetry.addData("Shooting heading error (deg)", "%.2f",
+                    Math.toDegrees(angleError(pose.heading(), shootingPose.heading())));
+        }
         telemetry.addData("Seconds", "%.1f", autoTimer.seconds());
         if (minimumFieldX() > 0) {
             telemetry.addData("Minimum field X", minimumFieldX());
@@ -334,6 +343,15 @@ public class PedroPollenShootAndPark extends OpMode {
                         && near(follower.pose(), destination, POSITION_TOLERANCE)
                         && Math.abs(angleError(follower.pose().heading(), destination.heading()))
                         <= HEADING_TOLERANCE));
+    }
+
+    static boolean outsideSideBoundary(Pose pose, double minimumFieldX) {
+        if (minimumFieldX <= 0) return false;
+        // Actual X extent of the rectangle at its current heading. The half-diagonal
+        // used for planning turns is too conservative for a straight shooting approach.
+        double halfExtentX = Math.abs(Math.cos(pose.heading())) * RobotConfig.ROBOT_LENGTH_INCHES / 2
+                + Math.abs(Math.sin(pose.heading())) * RobotConfig.ROBOT_WIDTH_INCHES / 2;
+        return pose.x() - halfExtentX <= minimumFieldX;
     }
 
     private void trackPollen() {
@@ -529,7 +547,14 @@ public class PedroPollenShootAndPark extends OpMode {
                 && Math.abs(angleError(pose.heading(), parkPose.heading())) <= HEADING_TOLERANCE;
     }
 
+    private void cancelAndFinish(String reason) {
+        if ("NONE".equals(stopReason)) stopReason = reason;
+        if (routine != null) Scheduler.cancel(routine);
+        finish();
+    }
+
     private void finish() {
+        if ("NONE".equals(stopReason)) stopReason = "ROUTINE COMPLETE";
         state = State.DONE;
         stopIntake();
         shooter.finishShooting();
