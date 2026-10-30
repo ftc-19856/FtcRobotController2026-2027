@@ -75,3 +75,13 @@ Telemetry shows Stop reason when the routine ends: BLUE X BOUNDARY, INVALID POSE
 the shooting pose are shown. A boundary stop cancels the run, so it will not
 collect or park afterward. The blue internal boundary stop uses center X only, so turning in place near
 the shooting pose cannot trigger it just because the robot's corners rotate.
+
+### Verify the installed revision
+
+Before starting, Driver Station telemetry must show **Auto revision: center-x70-r2**.
+If it does not, the robot is running a different build. When the routine stops,
+**STOP X / Y (in)**, **STOP heading (deg)**, **STOP phase**, and **STOP seconds**
+preserve the first stopping sample; the live Pose line can keep changing afterward.
+For BLUE X BOUNDARY with this revision, the saved STOP X must be <= 70.000.
+A displayed Pose heading such as 4 is in radians (about 229 degrees); the new STOP
+heading is explicitly in degrees.

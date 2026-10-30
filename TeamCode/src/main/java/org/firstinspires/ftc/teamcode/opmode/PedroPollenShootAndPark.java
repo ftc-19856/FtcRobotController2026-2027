@@ -35,6 +35,7 @@ import java.util.function.DoubleSupplier;
  */
 @Autonomous(name = "Pedro Pollen Shoot And Park", group = "Competition")
 public class PedroPollenShootAndPark extends OpMode {
+    public static final String AUTO_REVISION = "center-x70-r2";
     public static final double COLLECTION_SECONDS = 25.0;
     public static final double PARK_SECONDS = 5.0;
     public static final int STARTING_POLLEN = 4;
@@ -98,6 +99,9 @@ public class PedroPollenShootAndPark extends OpMode {
     private boolean yellow;
     private State state = State.DONE;
     private String stopReason = "NONE";
+    private Pose stopPose;
+    private String stopPhase;
+    private double stopSeconds;
     private Pose parkPose;
     private enum IntakePhase { CLEARANCE, SEARCH, ACQUIRE, ALIGN, APPROACH, FINISH, BRAKE }
     private IntakePhase intakePhase;
@@ -175,6 +179,7 @@ public class PedroPollenShootAndPark extends OpMode {
         limelight = hardwareMap.get(Limelight3A.class, RobotConfig.LIMELIGHT);
         limelight.pipelineSwitch(RobotConfig.POLLEN_PIPELINE_INDEX);
         limelight.start();
+        telemetry.addData("Auto revision", AUTO_REVISION);
         telemetry.addLine("Intake test: set actual starting load with D-pad UP/DOWN before START.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose", startingPose());
@@ -196,6 +201,7 @@ public class PedroPollenShootAndPark extends OpMode {
         previousLoadUp = gamepad1.dpad_up;
         previousLoadDown = gamepad1.dpad_down;
         follower.update();
+        telemetry.addData("Auto revision", AUTO_REVISION);
         telemetry.addLine("D-pad UP/DOWN: set actual starting pollen; empty robot = 0.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose", startingPose());
@@ -213,6 +219,7 @@ public class PedroPollenShootAndPark extends OpMode {
         parkPose = parkingPose();
         autoTimer.reset();
         stopReason = "NONE";
+        stopPose = null;
         shooter.start(holdTurretDuringAuto());
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
@@ -245,17 +252,24 @@ public class PedroPollenShootAndPark extends OpMode {
         // Record why execution stopped instead of silently displaying DONE.
         if (!Double.isFinite(pose.x()) || !Double.isFinite(pose.y())
                 || !Double.isFinite(pose.heading())) {
-            cancelAndFinish("INVALID POSE");
+            cancelAndFinish("INVALID POSE", pose);
         } else if (outsideSideBoundary(pose, minimumFieldX())) {
-            cancelAndFinish("BLUE X BOUNDARY");
+            cancelAndFinish("BLUE X BOUNDARY", pose);
         } else if (autoTimer.seconds() >= COLLECTION_SECONDS + PARK_SECONDS) {
-            cancelAndFinish("30 SECOND STOP");
+            cancelAndFinish("30 SECOND STOP", pose);
         } else {
             Scheduler.execute();
         }
         follower.update();
+        telemetry.addData("Auto revision", AUTO_REVISION);
         telemetry.addData("State", state);
         telemetry.addData("Stop reason", stopReason);
+        if (stopPose != null) {
+            telemetry.addData("STOP X / Y (in)", "%.3f / %.3f", stopPose.x(), stopPose.y());
+            telemetry.addData("STOP heading (deg)", "%.2f", Math.toDegrees(stopPose.heading()));
+            telemetry.addData("STOP phase", stopPhase);
+            telemetry.addData("STOP seconds", "%.2f", stopSeconds);
+        }
         if (state == State.RETURN) {
             telemetry.addData("Distance to shooting pose (in)", "%.2f",
                     Math.hypot(pose.x() - shootingPose.x(), pose.y() - shootingPose.y()));
@@ -550,14 +564,23 @@ public class PedroPollenShootAndPark extends OpMode {
                 && Math.abs(angleError(pose.heading(), parkPose.heading())) <= HEADING_TOLERANCE;
     }
 
-    private void cancelAndFinish(String reason) {
-        if ("NONE".equals(stopReason)) stopReason = reason;
+    private void rememberStop(String reason, Pose checkedPose) {
+        if (!"NONE".equals(stopReason)) return;
+        stopReason = reason;
+        // Copy the exact checked sample before cancellation or another localizer update.
+        stopPose = new Pose(checkedPose.x(), checkedPose.y(), checkedPose.heading());
+        stopPhase = state + (state == State.TRACK ? " / " + intakePhase : "");
+        stopSeconds = autoTimer.seconds();
+    }
+
+    private void cancelAndFinish(String reason, Pose checkedPose) {
+        rememberStop(reason, checkedPose);
         if (routine != null) Scheduler.cancel(routine);
         finish();
     }
 
     private void finish() {
-        if ("NONE".equals(stopReason)) stopReason = "ROUTINE COMPLETE";
+        rememberStop("ROUTINE COMPLETE", follower.pose());
         state = State.DONE;
         stopIntake();
         shooter.finishShooting();
