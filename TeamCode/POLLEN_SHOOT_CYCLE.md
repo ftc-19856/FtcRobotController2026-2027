@@ -105,3 +105,11 @@ in-place 180-degree counterclockwise turn and calculates offsets from the final
 translation divided by two. Generated values still need this independent check
 if the calibration pivot moved or the turn differed from 180 degrees. This
 diagnostic does not overwrite the tuned values.
+
+Revision **rotation-offsets-r2** also displays the starting heading and candidate
+corrected X/Y pod offsets when paused between 170 and 190 degrees of rotation.
+It accounts for the actual rotation angle, transforms displacement into the
+initial robot frame, and corrects the existing offsets instead of assuming zero
+offsets. Record the candidates while the robot is still. They are not applied
+automatically and are only valid if the physical center stayed on its mark and
+pod directions/resolution are correct.

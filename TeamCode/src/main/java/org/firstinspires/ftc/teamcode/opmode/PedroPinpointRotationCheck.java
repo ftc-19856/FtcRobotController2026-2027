@@ -4,6 +4,7 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 /** Checks the autonomous's actual Pinpoint configuration without mapping any motors. */
@@ -50,6 +51,7 @@ public final class PedroPinpointRotationCheck extends OpMode {
     }
 
     private void showTelemetry() {
+        telemetry.addData("Check revision", "rotation-offsets-r2");
         telemetry.addLine("No motors or servos are commanded by this check.");
         telemetry.addData("Pod type", Constants.localizerConfig.podType.get());
         telemetry.addData("X / Y pod offsets", "%.4f / %.4f",
@@ -67,7 +69,41 @@ public final class PedroPinpointRotationCheck extends OpMode {
             telemetry.addData("X change (in)", "%.3f", current.x() - startPose.x());
             telemetry.addData("Y change (in)", "%.3f", current.y() - startPose.y());
             telemetry.addData("Maximum position drift (in)", "%.3f", maxDrift);
+            telemetry.addData("Starting heading (deg)", "%.2f", Math.toDegrees(startPose.heading()));
+            if (Math.abs(totalTurn) >= Math.toRadians(170)
+                    && Math.abs(totalTurn) <= Math.toRadians(190)) {
+                DistanceUnit units = Constants.localizerConfig.offsetUnits.get();
+                double[] offsets = correctedOffsets(startPose, current,
+                        units.toInches(Constants.localizerConfig.xPodOffset.get()),
+                        units.toInches(Constants.localizerConfig.yPodOffset.get()));
+                if (offsets != null) {
+                    telemetry.addData("Candidate X pod offset (in)", "%.4f", offsets[0]);
+                    telemetry.addData("Candidate Y pod offset (in)", "%.4f", offsets[1]);
+                    telemetry.addLine("Candidates assume the physical center stayed on its mark.");
+                    telemetry.addLine("Record these values. Configuration is NOT changed.");
+                }
+            } else {
+                telemetry.addLine("Pause near 180 degrees to display candidate corrected offsets.");
+            }
         }
         telemetry.update();
+    }
+
+    /** Corrects rotation-induced drift in the initial robot frame; all lengths are inches. */
+    static double[] correctedOffsets(Pose start, Pose end, double configuredX, double configuredY) {
+        double dx = end.x() - start.x(), dy = end.y() - start.y();
+        double c = Math.cos(start.heading()), s = Math.sin(start.heading());
+        double robotX = c * dx + s * dy;
+        double robotY = -s * dx + c * dy;
+        double turn = end.heading() - start.heading();
+        double a = Math.sin(turn), b = 1 - Math.cos(turn);
+        double denominator = a * a + b * b;
+        if (!Double.isFinite(robotX) || !Double.isFinite(robotY)
+                || !Double.isFinite(denominator) || denominator < 1) return null;
+        // At exactly 180 degrees these reduce to subtracting robotY/2 from
+        // the forward pod's lateral offset and robotX/2 from the strafe pod's offset.
+        double xError = (a * robotX + b * robotY) / denominator;
+        double yError = (b * robotX - a * robotY) / denominator;
+        return new double[] {configuredX - xError, configuredY - yError};
     }
 }
