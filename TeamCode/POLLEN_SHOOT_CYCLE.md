@@ -85,3 +85,23 @@ preserve the first stopping sample; the live Pose line can keep changing afterwa
 For BLUE X BOUNDARY with this revision, the saved STOP X must be <= 70.000.
 A displayed Pose heading such as 4 is in radians (about 229 degrees); the new STOP
 heading is explicitly in degrees.
+
+### Check position drift during rotation
+
+Run **Pedro Pinpoint Rotation Check** under TeleOp/Test. It reads the exact
+`Constants.localizerConfig` used by autonomous, including pod type, directions,
+offsets and units. It does not map or command any drive or mechanism motor/servo.
+This is separate from the legacy Pod Offset Calibration mode, which uses a
+different configuration.
+
+Keep still during INIT. Mark the robot's physical center on the floor, press
+START, then rotate it by hand around that mark with both pods touching the floor.
+Pause at 90 degrees and at 180 degrees. Record Turn since START, X change,
+Y change and Maximum position drift. A stationary center should report little
+translation. Do not lift the pods or rotate around one wheel.
+
+The existing Pinpoint Tuner's Offsets Identification procedure assumes an
+in-place 180-degree counterclockwise turn and calculates offsets from the final
+translation divided by two. Generated values still need this independent check
+if the calibration pivot moved or the turn differed from 180 degrees. This
+diagnostic does not overwrite the tuned values.
