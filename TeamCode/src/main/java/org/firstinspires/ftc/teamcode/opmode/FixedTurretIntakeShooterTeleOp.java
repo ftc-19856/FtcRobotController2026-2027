@@ -32,22 +32,14 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
 
     @Override
     public void init() {
-        // Intentionally empty for fast Auto -> TeleOp switching. No hardware
-        // access, encoder reset, motor power, servo movement, or calibration.
-    }
-
-    @Override
-    public void start() {
-        // Same drivetrain setup as StarterTeleOp, deferred to START so INIT stays empty.
+        running = false;
+        // Prepare hardware during INIT; only zero motor power is commanded.
         drive = new MecanumDrive(hardwareMap);
         drive.resetYaw();
         intake = hardwareMap.get(DcMotor.class, RobotConfig.INTAKE_MOTOR);
         shooter = hardwareMap.get(DcMotor.class, RobotConfig.SHOOTER_MOTOR);
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);
         blocker = hardwareMap.get(Servo.class, RobotConfig.BLOCKER_SERVO);
-
-        intakeToggle = new Toggle(false, gamepad1.x);
-        shooterToggle = new Toggle(false, gamepad1.y);
 
         intake.setPower(0);
         shooter.setPower(0);
@@ -59,6 +51,16 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        telemetry.addLine("Ready. Mechanisms remain still until START.");
+        telemetry.addLine("X: intake toggle | Y: shooter toggle | Hold A: ready to shoot");
+        telemetry.update();
+    }
+
+    @Override
+    public void start() {
+        // Sample buttons and the turret position at START, not during INIT.
+        intakeToggle = new Toggle(false, gamepad1.x);
+        shooterToggle = new Toggle(false, gamepad1.y);
         turretHoldTicks = turret.getCurrentPosition();
         turret.setTargetPosition(turretHoldTicks);
         turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
@@ -104,12 +106,14 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
 
     @Override
     public void stop() {
+        boolean wasRunning = running;
         running = false;
         if (drive != null) drive.stop();
         if (intake != null) intake.setPower(0);
         if (shooter != null) shooter.setPower(0);
         if (turret != null) turret.setPower(0);
-        if (blocker != null) {
+        // Cancelling INIT must not reposition the servo.
+        if (wasRunning && blocker != null) {
             blocker.setPosition(BLOCKER_BLOCKED_POSITION);
             if (blocker instanceof ServoImplEx) ((ServoImplEx) blocker).setPwmEnable();
         }
