@@ -11,7 +11,7 @@ public abstract class AllianceAutonomousPaths {
     public final Pose start;
     public final Pose shooting;
     public final Pose park;
-    private final Pose parkControl;
+    protected final Pose parkControl;
 
     protected AllianceAutonomousPaths(Pose start, Pose shooting, Pose parkControl, Pose park) {
         this.start = start;
@@ -26,5 +26,10 @@ public abstract class AllianceAutonomousPaths {
 
     public Path path2() {
         return curve(shooting, parkControl, park).constant(park);
+    }
+
+    /** Keeps the supplied control point when collection ends at a different pose. */
+    public Path pathToPark(Pose current) {
+        return curve(current, parkControl, park).linear(current, park);
     }
 }

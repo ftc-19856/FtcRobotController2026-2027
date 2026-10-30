@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
 import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 import org.firstinspires.ftc.teamcode.pedro.AllianceAutonomousPaths;
 
 /** Alliance starts/parks with the shared preload, seek-four, return-and-shoot cycle. */
@@ -19,4 +20,7 @@ public abstract class ShootLeaveParkAuto extends PedroPollenShootAndPark {
 
     @Override
     protected final Pose parkingPose() { return route().park; }
+
+    @Override
+    protected final Path parkingPath(Pose current) { return route().pathToPark(current); }
 }

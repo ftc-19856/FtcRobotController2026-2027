@@ -22,14 +22,17 @@ it does not actively hold, aim, or rotate the turret, including while shooting.
 Position the turret manually before running. Red and TeleOp retain their existing
 encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
 The established park endpoints are unchanged. Since seeking can end anywhere,
-parking uses a line from the current pose rather than the old curve with a
-fixed starting point. Verify field clearance and that the return fits five seconds.
+parking uses a curve from the current pose through the original alliance
+control point. Blue uses (131.9551, 91.8665); red uses (15.2254, 37.9912).
+Blue inserts clearance waypoints around the hive as described below.
+These are Bezier control points, not waypoints the robot necessarily passes
+through. Verify field clearance and that the return fits five seconds.
 
 **Blue side boundary:** Blue Shoot Leave Park restricts the Pedro robot-center
 coordinate to X > 70. Search and pickup centers are planned at X >= 72 to leave
 an extra two-inch buffer. The physical field walls still use the 18x18 robot's
-turning clearance. Targets across X = 70 are ignored, and return/park paths have
-both endpoints on the blue side. A reported center X <= 70 stops the run. This
+turning clearance. Targets across X = 70 are ignored. Return paths and parking waypoints
+stay on the blue side; the parking control point is also on that side. A reported center X <= 70 stops the run. This
 internal boundary applies to the center; turning alone cannot trigger the stop.
 Red's collection region is unchanged.
 
@@ -78,7 +81,7 @@ the shooting pose cannot trigger it just because the robot's corners rotate.
 
 ### Verify the installed revision
 
-Before starting, Driver Station telemetry must show **Auto revision: center-x70-r2**.
+Before starting, Driver Station telemetry must show **Auto revision: park-curve-vision-r3**.
 If it does not, the robot is running a different build. When the routine stops,
 **STOP X / Y (in)**, **STOP heading (deg)**, **STOP phase**, and **STOP seconds**
 preserve the first stopping sample; the live Pose line can keep changing afterward.
@@ -119,3 +122,35 @@ applied to Pedro's `Constants.localizerConfig`. Pod type remains four-bar and
 encoder directions remain as tuned. Deploy and repeat the centered rotation
 check: X/Y change should stay near zero. These offsets are shared by all Pedro
 modes; the legacy `RobotConfig` offsets are separate.
+
+## Visible target without an approach
+
+The camera LED alone does not indicate whether a target passed robot-code checks.
+During INIT or running, read **Vision decision**, **Last visible target**,
+**Last lock result**, **Lock frames**, and the raw
+and corrected camera angles. The most recent visible-target decision stays on
+screen after detection is lost. Reasons identify pipeline mismatch, stale frames,
+small target area, invalid ground angle/range, a projected point outside the
+field, or an unreachable pickup pose. Three distinct consistent camera frames
+are still required before approaching. These diagnostics do not relax the
+existing target filters.
+
+## Blue parking around the hive
+
+The reported obstruction is modeled as X=94.5..95.5, Y=50..90 inches. Blue's
+parking planner reserves the robot's half-diagonal plus two inches around it.
+It uses the supplied parking curve if that entire curve clears this buffer.
+Otherwise, it takes Pedro line segments around the nearer clear end, followed
+by a curve using the original (131.9551, 91.8665) control point to the original
+park endpoint. From the shooting pose, this goes above the structure and across
+to about (110.23, 104.73) before the final curve.
+
+If collection ends inside the conservative turning buffer but the current robot
+footprint is still clear of the structure, the first leg moves directly away
+with heading held fixed before allowing a turn. If no clear escape is available,
+the routine stops with NO CLEAR PARK ROUTE. The five-second parking budget and
+30-second cutoff remain unchanged. Route clearance depends on correct
+localization and the reported obstacle dimensions.
+
+This obstacle routing applies to Blue Shoot Leave Park's parking phase. Intake
+approaches and returns to shoot retain their existing straight paths.

@@ -37,6 +37,32 @@ public final class AlliancePathAutoTest {
         assertConstantHeading(route.path2(), 270);
     }
 
+    @Test public void parkingFromACollectedPoseRetainsBlueControlPoint() {
+        AllianceAutonomousPaths route = new BlueAlliancePaths();
+        Path path = route.pathToPark(new Pose(120, 100, Math.toRadians(180)));
+        assertPose(path.get(0), 120, 100, 180);
+        // Quadratic midpoint = start/4 + control/2 + end/4.
+        Pose middle = path.get(0.5);
+        assertEquals(129.8298, middle.x(), 1e-6);
+        assertEquals(76.770775, middle.y(), 1e-6);
+        // Pedro interpolates heading over distance, not the Bezier parameter.
+        assertTrue(middle.heading() > Math.toRadians(180));
+        assertTrue(middle.heading() < Math.toRadians(270));
+        assertPose(path.get(1), 135.409, 23.3501, 270);
+    }
+
+    @Test public void redParkingFromShootingPoseMatchesOriginalSuppliedCurve() {
+        for (AllianceAutonomousPaths route : new AllianceAutonomousPaths[] {
+                new RedAlliancePaths()}) {
+            Path dynamic = route.pathToPark(route.shooting);
+            for (double t : new double[] {0, 0.25, 0.5, 0.75, 1}) {
+                Pose original = route.path2().get(t);
+                assertPose(dynamic.get(t), original.x(), original.y(),
+                        Math.toDegrees(original.heading()));
+            }
+        }
+    }
+
     @Test public void ivyWaitsForEachPhaseBeforeStartingTheNextOne() {
         boolean[] completed = {false, false, false};
         java.util.List<String> events = new java.util.ArrayList<>();

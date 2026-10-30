@@ -14,6 +14,7 @@ import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.ivy.Scheduler;
 import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -35,7 +36,7 @@ import java.util.function.DoubleSupplier;
  */
 @Autonomous(name = "Pedro Pollen Shoot And Park", group = "Competition")
 public class PedroPollenShootAndPark extends OpMode {
-    public static final String AUTO_REVISION = "center-x70-r2";
+    public static final String AUTO_REVISION = "park-curve-vision-r3";
     public static final double COLLECTION_SECONDS = 25.0;
     public static final double PARK_SECONDS = 5.0;
     public static final int STARTING_POLLEN = 4;
@@ -97,6 +98,10 @@ public class PedroPollenShootAndPark extends OpMode {
     private Pose shootingPose;
     private int red, green, blue;
     private boolean yellow;
+    private String visionStatus = "WAITING FOR FRAME";
+    private String lastTargetDecision = "NONE";
+    private String lastLockDecision = "NO LOCK ATTEMPT YET";
+    private double lastTargetTime;
     private State state = State.DONE;
     private String stopReason = "NONE";
     private Pose stopPose;
@@ -155,6 +160,10 @@ public class PedroPollenShootAndPark extends OpMode {
         return new Pose(PARK_X, PARK_Y, PARK_HEADING);
     }
 
+    protected Path parkingPath(Pose current) {
+        return line(current, parkPose).linear(current, parkPose);
+    }
+
     @Override
     public void init() {
         Scheduler.reset();
@@ -207,6 +216,9 @@ public class PedroPollenShootAndPark extends OpMode {
         telemetry.addData("Start pose", startingPose());
         readColor();
         showColor();
+        // Preview target rejection while stationary, without commanding a pickup.
+        ballFromResult(limelight.getLatestResult());
+        showVision();
         telemetry.addData("Shooting pose", shootingTargetPose());
         telemetry.addLine("Aim the fixed turret for the shooting pose.");
         telemetry.update();
@@ -220,6 +232,9 @@ public class PedroPollenShootAndPark extends OpMode {
         autoTimer.reset();
         stopReason = "NONE";
         stopPose = null;
+        visionStatus = "WAITING FOR FRAME";
+        lastTargetDecision = "NONE";
+        lastLockDecision = "NO LOCK ATTEMPT YET";
         shooter.start(holdTurretDuringAuto());
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
@@ -292,6 +307,7 @@ public class PedroPollenShootAndPark extends OpMode {
             if (approachGoal != null) telemetry.addData("Pickup pose", approachGoal);
         }
         showColor();
+        showVision();
         telemetry.addData("Pose", follower.pose());
         telemetry.update();
     }
@@ -410,6 +426,7 @@ public class PedroPollenShootAndPark extends OpMode {
                     }
                     Pose lockedBall = samples.agreed();
                     if (lockedBall != null) {
+                        lastLockDecision = "THREE FRAMES AGREED";
                         activeBall = lockedBall;
                         approachGoal = pickupPose(current, lockedBall, minimumFieldX());
                         if (approachGoal == null) {
@@ -421,7 +438,11 @@ public class PedroPollenShootAndPark extends OpMode {
                         break;
                     }
                 }
-                if (phaseTimer.seconds() >= ACQUIRE_TIMEOUT_SECONDS) beginSearch();
+                if (phaseTimer.seconds() >= ACQUIRE_TIMEOUT_SECONDS) {
+                    lastLockDecision = samples.count >= 3 ? "LOCK FAILED: FRAMES DISAGREED"
+                            : "LOCK FAILED: FEWER THAN THREE DIFFERENT FRAMES";
+                    beginSearch();
+                }
                 break;
             case ALIGN:
                 if (Math.abs(angleError(current.heading(), approachGoal.heading()))
@@ -501,22 +522,70 @@ public class PedroPollenShootAndPark extends OpMode {
         return ballFromResult(limelight.getLatestResult());
     }
 
+    private Pose rejectVision(String reason, LLResult result) {
+        visionStatus = reason;
+        if (result != null && result.isValid()) {
+            lastTargetDecision = reason;
+            lastTargetTime = autoTimer.seconds();
+        }
+        return null;
+    }
+
+    private void showVision() {
+        telemetry.addData("Vision decision", visionStatus);
+        telemetry.addData("Last visible target", lastTargetDecision);
+        if (!"NONE".equals(lastTargetDecision)) {
+            telemetry.addData("Last target decision age (s)", "%.1f", autoTimer.seconds() - lastTargetTime);
+        }
+        telemetry.addData("Lock frames", "%d / 3", Math.min(samples.count, 3));
+        telemetry.addData("Last lock result", lastLockDecision);
+        LLResult result = limelight.getLatestResult();
+        if (result != null) {
+            telemetry.addData("Camera pipeline / valid", "%d / %s", result.getPipelineIndex(), result.isValid());
+            telemetry.addData("Camera raw tx / ty (deg)", "%.2f / %.2f", result.getTx(), result.getTy());
+            telemetry.addData("Corrected horizontal / vertical (deg)", "%.2f / %.2f", result.getTy(), -result.getTx());
+            telemetry.addData("Target area (%) / frame age (ms)", "%.3f / %.0f", result.getTa(), (double) result.getStaleness());
+        }
+    }
+
     private Pose ballFromResult(LLResult result) {
-        if (result == null || !result.isValid() || result.getStaleness() > 150
-                || result.getPipelineIndex() != RobotConfig.POLLEN_PIPELINE_INDEX
-                || !Double.isFinite(result.getTa()) || result.getTa() < MIN_AREA_PERCENT) return null;
+        if (result == null) return rejectVision("NO CAMERA FRAME", null);
+        if (!result.isValid()) return rejectVision("NO VALID TARGET", result);
+        if (result.getStaleness() > 150) return rejectVision("FRAME TOO OLD", result);
+        if (result.getPipelineIndex() != RobotConfig.POLLEN_PIPELINE_INDEX) {
+            return rejectVision("WRONG PIPELINE: EXPECTED " + RobotConfig.POLLEN_PIPELINE_INDEX, result);
+        }
+        if (!Double.isFinite(result.getTa()) || result.getTa() < MIN_AREA_PERCENT) {
+            return rejectVision("TARGET AREA BELOW " + MIN_AREA_PERCENT + "%", result);
+        }
         // Portrait mount: viewed head-on, the old bottom is now on the right.
-        // Raw +tx points down; raw +ty points to the robot's right.
         double horizontal = result.getTy();
         double vertical = -result.getTx();
+        if (!Double.isFinite(horizontal) || !Double.isFinite(vertical)) {
+            return rejectVision("INVALID TARGET ANGLES", result);
+        }
+        if (vertical >= 0 || vertical <= -90) {
+            return rejectVision("TARGET NOT BELOW CAMERA: CHECK MOUNT/ANGLES", result);
+        }
+        if (!Double.isFinite(cameraRange(vertical))) {
+            return rejectVision("TARGET RANGE OUT OF BOUNDS", result);
+        }
         Pose ball = ballFieldPose(follower.pose(), horizontal, vertical);
-        // Give the camera time to switch away from the ball just collected;
-        // otherwise a lingering detection can immediately repeat the same pickup.
-        if (ball != null && lastPickupBall != null
-                && autoTimer.seconds() - lastPickupTime < 1.0
-                && near(ball, lastPickupBall, 6.0)) return null;
-        // Skip wall targets which cannot be reached with clearance for the next turn.
-        return ball != null && pickupPose(follower.pose(), ball, minimumFieldX()) != null ? ball : null;
+        if (ball == null) return rejectVision("TARGET PROJECTS OUTSIDE FIELD", result);
+        if (minimumFieldX() > 0 && ball.x() <= minimumFieldX()) {
+            return rejectVision("TARGET ACROSS BLUE X BOUNDARY", result);
+        }
+        if (lastPickupBall != null && autoTimer.seconds() - lastPickupTime < 1.0
+                && near(ball, lastPickupBall, 6.0)) {
+            return rejectVision("JUST ATTEMPTED THIS TARGET", result);
+        }
+        if (pickupPose(follower.pose(), ball, minimumFieldX()) == null) {
+            return rejectVision("PICKUP POSE TOO CLOSE TO WALL/BOUNDARY", result);
+        }
+        visionStatus = "TARGET ACCEPTED";
+        lastTargetDecision = visionStatus;
+        lastTargetTime = autoTimer.seconds();
+        return ball;
     }
 
     // Spins up the flywheel at the shooting pose, then opens the blocker and runs the
@@ -550,8 +619,15 @@ public class PedroPollenShootAndPark extends OpMode {
             // Avoid a zero-length path; hold handles a heading-only adjustment.
             return sequential(hold(follower, parkPose), waitUntil(this::parkReached));
         }
+        Path route = parkingPath(current);
+        if (route == null) {
+            return instant(() -> {
+                rememberStop("NO CLEAR PARK ROUTE: TOO CLOSE TO HIVE", current);
+                finish();
+            });
+        }
         return sequential(
-                follow(follower, line(current, parkPose).linear(current, parkPose)),
+                follow(follower, route),
                 // Ivy 1.1.1 follow ends at parametric end. Keep Pedro's endpoint
                 // correction active until its built-in completion constraints finish.
                 waitUntil(() -> !follower.isBusy()));
