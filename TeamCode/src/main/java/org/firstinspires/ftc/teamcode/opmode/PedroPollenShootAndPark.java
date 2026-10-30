@@ -36,7 +36,7 @@ import java.util.function.DoubleSupplier;
  */
 @Autonomous(name = "Pedro Pollen Shoot And Park", group = "Competition")
 public class PedroPollenShootAndPark extends OpMode {
-    public static final String AUTO_REVISION = "park-curve-vision-r3";
+    public static final String AUTO_REVISION = "park-curve-vision-r4";
     public static final double COLLECTION_SECONDS = 25.0;
     public static final double PARK_SECONDS = 5.0;
     public static final int STARTING_POLLEN = 4;
@@ -56,7 +56,8 @@ public class PedroPollenShootAndPark extends OpMode {
     // flywheel; run it long enough to feed all four.
     private static final double FEED_SECONDS = 3.0;
 
-    private static final double MIN_AREA_PERCENT = 0.1;
+    // Pollen can yield a small color contour even at normal pickup distances.
+    public static double MIN_AREA_PERCENT = 0.01;
     public static double CAMERA_HEIGHT = 8.5;
     public static double CAMERA_FORWARD_OFFSET = 7.5;
     public static double CAMERA_RIGHT_OFFSET = 0;
@@ -100,6 +101,7 @@ public class PedroPollenShootAndPark extends OpMode {
     private boolean yellow;
     private String visionStatus = "WAITING FOR FRAME";
     private String lastTargetDecision = "NONE";
+    private double lastVisibleArea;
     private String lastLockDecision = "NO LOCK ATTEMPT YET";
     private double lastTargetTime;
     private State state = State.DONE;
@@ -526,6 +528,7 @@ public class PedroPollenShootAndPark extends OpMode {
         visionStatus = reason;
         if (result != null && result.isValid()) {
             lastTargetDecision = reason;
+            lastVisibleArea = result.getTa();
             lastTargetTime = autoTimer.seconds();
         }
         return null;
@@ -534,7 +537,9 @@ public class PedroPollenShootAndPark extends OpMode {
     private void showVision() {
         telemetry.addData("Vision decision", visionStatus);
         telemetry.addData("Last visible target", lastTargetDecision);
+        telemetry.addData("Minimum target area (%)", "%.4f", MIN_AREA_PERCENT);
         if (!"NONE".equals(lastTargetDecision)) {
+            telemetry.addData("Last visible area (%)", "%.4f", lastVisibleArea);
             telemetry.addData("Last target decision age (s)", "%.1f", autoTimer.seconds() - lastTargetTime);
         }
         telemetry.addData("Lock frames", "%d / 3", Math.min(samples.count, 3));
@@ -584,6 +589,7 @@ public class PedroPollenShootAndPark extends OpMode {
         }
         visionStatus = "TARGET ACCEPTED";
         lastTargetDecision = visionStatus;
+        lastVisibleArea = result.getTa();
         lastTargetTime = autoTimer.seconds();
         return ball;
     }

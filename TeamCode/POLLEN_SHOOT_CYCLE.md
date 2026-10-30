@@ -81,7 +81,7 @@ the shooting pose cannot trigger it just because the robot's corners rotate.
 
 ### Verify the installed revision
 
-Before starting, Driver Station telemetry must show **Auto revision: park-curve-vision-r3**.
+Before starting, Driver Station telemetry must show **Auto revision: park-curve-vision-r4**.
 If it does not, the robot is running a different build. When the routine stops,
 **STOP X / Y (in)**, **STOP heading (deg)**, **STOP phase**, and **STOP seconds**
 preserve the first stopping sample; the live Pose line can keep changing afterward.
@@ -132,8 +132,11 @@ and corrected camera angles. The most recent visible-target decision stays on
 screen after detection is lost. Reasons identify pipeline mismatch, stale frames,
 small target area, invalid ground angle/range, a projected point outside the
 field, or an unreachable pickup pose. Three distinct consistent camera frames
-are still required before approaching. These diagnostics do not relax the
-existing target filters.
+are still required before approaching. The extra robot-code minimum target
+area is **0.01%**, lowered from 0.1% after valid detections at approximately
+three feet were rejected. **Last visible area (%)** preserves the detected
+area after the camera loses the target. Pipeline validity, frame freshness,
+ground-angle/range, field/boundary and target-consistency checks remain active.
 
 ## Blue parking around the hive
 
