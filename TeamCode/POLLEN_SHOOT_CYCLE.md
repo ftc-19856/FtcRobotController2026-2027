@@ -113,3 +113,9 @@ initial robot frame, and corrects the existing offsets instead of assuming zero
 offsets. Record the candidates while the robot is still. They are not applied
 automatically and are only valid if the physical center stayed on its mark and
 pod directions/resolution are correct.
+
+The reported candidates **X pod = 5.93 inches, Y pod = -6.65 inches** have been
+applied to Pedro's `Constants.localizerConfig`. Pod type remains four-bar and
+encoder directions remain as tuned. Deploy and repeat the centered rotation
+check: X/Y change should stay near zero. These offsets are shared by all Pedro
+modes; the legacy `RobotConfig` offsets are separate.
