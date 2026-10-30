@@ -20,3 +20,13 @@ When adding hardware, edit the existing configured file. Preserve its device
 names and ports when scanning; saving a new/default controller configuration
 can replace those mappings. The exact UI action that rewrote Main was not
 observed. The remote diagnostic commands used before recovery were read-only.
+
+`limelight-pipeline0-before-json.json` is a backup of the camera's pollen color
+pipeline captured during tracking diagnosis. Its saved JSON-output value is 0.
+A temporary JSON-output test used `flush=0`, leaving the saved pipeline unchanged.
+The Hub debug connection went offline before the attempted runtime rollback could
+complete; reconnect and verify the runtime flag, or reload the saved pipeline.
+No exposure or color/contour thresholds were changed. Twenty fresh result samples
+reported valid=0 and no Retro/color targets, while the retrieved stream frame was
+almost black. The selected stream view still needs checking before concluding
+that the raw camera exposure is wrong.
