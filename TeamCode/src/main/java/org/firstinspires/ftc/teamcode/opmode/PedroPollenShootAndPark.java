@@ -134,7 +134,7 @@ public class PedroPollenShootAndPark extends OpMode {
                 instant(finish));
     }
 
-    // Field-side boundary for the entire robot, including its swept turning footprint.
+    // Internal field-side boundary applies to the Pedro robot-center coordinate.
     protected double minimumFieldX() { return 0; }
 
     protected boolean holdTurretDuringAuto() { return true; }
@@ -265,7 +265,7 @@ public class PedroPollenShootAndPark extends OpMode {
         telemetry.addData("Seconds", "%.1f", autoTimer.seconds());
         if (minimumFieldX() > 0) {
             telemetry.addData("Minimum field X", minimumFieldX());
-            telemetry.addData("Minimum planned center X", minimumFieldX() + TURN_CLEARANCE);
+            telemetry.addData("Minimum planned center X", minimumPlannedCenterX(minimumFieldX()));
         }
         telemetry.addData("Pollen held", "%d / %d", heldPollen, POLLEN_CAPACITY);
         if (state == State.TRACK) {
@@ -346,12 +346,15 @@ public class PedroPollenShootAndPark extends OpMode {
     }
 
     static boolean outsideSideBoundary(Pose pose, double minimumFieldX) {
-        if (minimumFieldX <= 0) return false;
-        // Actual X extent of the rectangle at its current heading. The half-diagonal
-        // used for planning turns is too conservative for a straight shooting approach.
-        double halfExtentX = Math.abs(Math.cos(pose.heading())) * RobotConfig.ROBOT_LENGTH_INCHES / 2
-                + Math.abs(Math.sin(pose.heading())) * RobotConfig.ROBOT_WIDTH_INCHES / 2;
-        return pose.x() - halfExtentX <= minimumFieldX;
+        // X=70 is an internal robot-center limit, not a physical field wall.
+        // Turning in place must not turn a legal center into a boundary violation.
+        return minimumFieldX > 0 && pose.x() <= minimumFieldX;
+    }
+
+    static double minimumPlannedCenterX(double minimumFieldX) {
+        // Keep wall clearance for turning; allow a two-inch center buffer at the
+        // blue internal boundary without adding the robot's diagonal footprint.
+        return Math.max(TURN_CLEARANCE, minimumFieldX > 0 ? minimumFieldX + 2 : 0);
     }
 
     private void trackPollen() {
@@ -578,7 +581,7 @@ public class PedroPollenShootAndPark extends OpMode {
     }
 
     static Pose clearancePose(Pose current, double minimumFieldX) {
-        return new Pose(clamp(current.x(), minimumFieldX + TURN_CLEARANCE, FIELD_SIZE - TURN_CLEARANCE),
+        return new Pose(clamp(current.x(), minimumPlannedCenterX(minimumFieldX), FIELD_SIZE - TURN_CLEARANCE),
                 clamp(current.y(), TURN_CLEARANCE, FIELD_SIZE - TURN_CLEARANCE), current.heading());
     }
 

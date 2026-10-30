@@ -25,15 +25,13 @@ The established park endpoints are unchanged. Since seeking can end anywhere,
 parking uses a line from the current pose rather than the old curve with a
 fixed starting point. Verify field clearance and that the return fits five seconds.
 
-**Blue side boundary:** Blue Shoot Leave Park keeps the entire 18x18 robot above
-Pedro X = 70. Search and pickup centers stay at or above about X = 83.73, allowing
-the robot's half-diagonal plus one inch of clearance when turning. Unreachable
-pollen near or across the boundary are ignored. Return and park lines have both
-endpoints on the blue side. A localization-based stop also stops all actions if
-the reported robot footprint reaches X = 70, using its actual heading. At 270
-degrees this means center X = 79; at 45 degrees it is about X = 82.73.
-Red's collection region is unchanged. Physical clearance still depends on accurate
-localization and braking; this is not a physical barrier.
+**Blue side boundary:** Blue Shoot Leave Park restricts the Pedro robot-center
+coordinate to X > 70. Search and pickup centers are planned at X >= 72 to leave
+an extra two-inch buffer. The physical field walls still use the 18x18 robot's
+turning clearance. Targets across X = 70 are ignored, and return/park paths have
+both endpoints on the blue side. A reported center X <= 70 stops the run. This
+internal boundary applies to the center; turning alone cannot trigger the stop.
+Red's collection region is unchanged.
 
 ## Transfer color sensor
 
@@ -75,5 +73,5 @@ right should make corrected horizontal positive. Verify this before driving.
 Telemetry shows Stop reason when the routine ends: BLUE X BOUNDARY, INVALID POSE,
 30 SECOND STOP, or ROUTINE COMPLETE. During RETURN, distance and heading error to
 the shooting pose are shown. A boundary stop cancels the run, so it will not
-collect or park afterward. The boundary stop now uses the robot's actual heading,
-so an aligned approach is not stopped based on its larger diagonal turning radius.
+collect or park afterward. The blue internal boundary stop uses center X only, so turning in place near
+the shooting pose cannot trigger it just because the robot's corners rotate.
