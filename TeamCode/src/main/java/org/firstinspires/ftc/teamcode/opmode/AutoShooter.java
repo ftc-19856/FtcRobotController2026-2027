@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
 
 /**
  * The shooter, turret and blocker as the autonomous modes use them, set up the same way as
- * Fixed Turret Intake Shooter TeleOp: the turret holds where it starts, and the blocker stays
+ * Fixed Turret Intake Shooter TeleOp: the turret optionally holds where it starts, and the blocker stays
  * closed except while feeding pollen into the spinning flywheel. The intake drives the
  * transfer, so the caller feeds by running the intake while the blocker is open.
  */
@@ -33,10 +33,16 @@ final class AutoShooter {
     }
 
     /** Call at START: nothing moves during INIT. */
-    void start() {
-        turret.setTargetPosition(turret.getCurrentPosition());
-        turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        turret.setPower(FixedTurretIntakeShooterTeleOp.TURRET_HOLD_POWER);
+    void start(boolean holdTurret) {
+        if (holdTurret) {
+            turret.setTargetPosition(turret.getCurrentPosition());
+            turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            turret.setPower(FixedTurretIntakeShooterTeleOp.TURRET_HOLD_POWER);
+        } else {
+            // No encoder correction or powered turret movement in this mode.
+            turret.setPower(0);
+            turret.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
         setBlocker(FixedTurretIntakeShooterTeleOp.BLOCKER_BLOCKED_POSITION);
     }
 
@@ -48,7 +54,7 @@ final class AutoShooter {
         setBlocker(FixedTurretIntakeShooterTeleOp.BLOCKER_CLEAR_POSITION);
     }
 
-    /** Closes the blocker and stops the flywheel; the turret keeps holding. */
+    /** Closes the blocker and stops the flywheel; leaves the turret setting unchanged. */
     void finishShooting() {
         setBlocker(FixedTurretIntakeShooterTeleOp.BLOCKER_BLOCKED_POSITION);
         shooter.setPower(0);

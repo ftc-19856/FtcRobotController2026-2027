@@ -13,6 +13,9 @@ public final class BlueShootLeavePark extends ShootLeaveParkAuto {
     protected double minimumFieldX() { return MINIMUM_FIELD_X; }
 
     @Override
+    protected boolean holdTurretDuringAuto() { return false; }
+
+    @Override
     protected Pose shootingTargetPose() {
         return createPaths().shooting;
     }

@@ -136,6 +136,8 @@ public class PedroPollenShootAndPark extends OpMode {
     // Field-side boundary for the entire robot, including its swept turning footprint.
     protected double minimumFieldX() { return 0; }
 
+    protected boolean holdTurretDuringAuto() { return true; }
+
     protected Pose startingPose() {
         return new Pose(START_X, START_Y, START_HEADING);
     }
@@ -209,7 +211,7 @@ public class PedroPollenShootAndPark extends OpMode {
         shootingPose = shootingTargetPose();
         parkPose = parkingPose();
         autoTimer.reset();
-        shooter.start();
+        shooter.start(holdTurretDuringAuto());
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
         routine = routineCommand(autoTimer::seconds,

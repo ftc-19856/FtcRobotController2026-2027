@@ -17,6 +17,10 @@ The fixed turret must be aimed at the hive at the shooting pose. Red starts and
 shoots at (9.7, 32.8, 90 Pedro degrees). Blue starts at (132, 109, 270 Pedro
 degrees), then drives to (83.9, 108.6, 270 Pedro degrees) to shoot both preloads
 and subsequent batches. It waits for the drive and heading to settle before shooting.
+Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
+it does not actively hold, aim, or rotate the turret, including while shooting.
+Position the turret manually before running. Red and TeleOp retain their existing
+encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
 The established park endpoints are unchanged. Since seeking can end anywhere,
 parking uses a line from the current pose rather than the old curve with a
 fixed starting point. Verify field clearance and that the return fits five seconds.
