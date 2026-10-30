@@ -25,6 +25,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.vision.LimelightCameraPreview;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import java.util.function.DoubleSupplier;
 
@@ -92,6 +93,7 @@ public class PedroPollenShootAndPark extends OpMode {
     private final ElapsedTime phaseTimer = new ElapsedTime();
     private Follower follower;
     private Limelight3A limelight;
+    private LimelightCameraPreview cameraPreview;
     private DcMotorEx intake;
     private AutoShooter shooter;
     private ColorSensor transferColor;
@@ -190,6 +192,7 @@ public class PedroPollenShootAndPark extends OpMode {
         limelight = hardwareMap.get(Limelight3A.class, RobotConfig.LIMELIGHT);
         limelight.pipelineSwitch(RobotConfig.POLLEN_PIPELINE_INDEX);
         limelight.start();
+        cameraPreview = LimelightCameraPreview.start(limelight);
         telemetry.addData("Auto revision", AUTO_REVISION);
         telemetry.addLine("Intake test: set actual starting load with D-pad UP/DOWN before START.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
@@ -197,6 +200,7 @@ public class PedroPollenShootAndPark extends OpMode {
         telemetry.addData("Robot size (in)", "%.0f x %.0f",
                 RobotConfig.ROBOT_LENGTH_INCHES, RobotConfig.ROBOT_WIDTH_INCHES);
         telemetry.addLine("Keep still while Pinpoint calibrates.");
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -223,6 +227,7 @@ public class PedroPollenShootAndPark extends OpMode {
         showVision();
         telemetry.addData("Shooting pose", shootingTargetPose());
         telemetry.addLine("Aim the fixed turret for the shooting pose.");
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -311,6 +316,7 @@ public class PedroPollenShootAndPark extends OpMode {
         showColor();
         showVision();
         telemetry.addData("Pose", follower.pose());
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -535,6 +541,7 @@ public class PedroPollenShootAndPark extends OpMode {
     }
 
     private void showVision() {
+        if (cameraPreview != null) cameraPreview.setTrackingStatus(visionStatus + " / " + lastLockDecision);
         telemetry.addData("Vision decision", visionStatus);
         telemetry.addData("Last visible target", lastTargetDecision);
         telemetry.addData("Minimum target area (%)", "%.4f", MIN_AREA_PERCENT);
@@ -768,6 +775,7 @@ public class PedroPollenShootAndPark extends OpMode {
 
     @Override
     public void stop() {
+        if (cameraPreview != null) cameraPreview.close();
         if (routine != null) Scheduler.cancel(routine);
         Scheduler.reset();
         if (follower != null) stopDrive();

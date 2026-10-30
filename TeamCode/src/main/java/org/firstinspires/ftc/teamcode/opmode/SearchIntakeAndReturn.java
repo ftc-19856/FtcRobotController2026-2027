@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.vision.LimelightCameraPreview;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.localization.PinpointOdometry;
 
@@ -144,6 +145,7 @@ public final class SearchIntakeAndReturn extends OpMode {
     private MecanumDrive drive;
     private PinpointOdometry odometry;
     private Limelight3A limelight;
+    private LimelightCameraPreview cameraPreview;
     private DcMotorEx intake;
     private State state;
     private State measuringFrom;
@@ -180,8 +182,10 @@ public final class SearchIntakeAndReturn extends OpMode {
         limelight = hardwareMap.get(Limelight3A.class, RobotConfig.LIMELIGHT);
         limelight.pipelineSwitch(RobotConfig.POLLEN_PIPELINE_INDEX);
         limelight.start();
+        cameraPreview = LimelightCameraPreview.start(limelight);
 
         telemetry.addLine("Initialized; keep still while the Pinpoint IMU calibrates");
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -348,6 +352,7 @@ public final class SearchIntakeAndReturn extends OpMode {
         telemetry.addData("Forward X (in)", "%.2f", forward);
         telemetry.addData("Right Y (in)", "%.2f", right);
         telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(heading));
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -674,6 +679,7 @@ public final class SearchIntakeAndReturn extends OpMode {
 
     @Override
     public void stop() {
+        if (cameraPreview != null) cameraPreview.close();
         drive.stop();
         intake.setPower(0);
         limelight.stop();

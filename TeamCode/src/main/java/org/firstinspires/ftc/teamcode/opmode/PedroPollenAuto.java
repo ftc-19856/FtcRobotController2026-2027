@@ -22,6 +22,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.vision.LimelightCameraPreview;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import java.util.function.DoubleSupplier;
 
@@ -71,6 +72,7 @@ public final class PedroPollenAuto extends OpMode {
     private final ElapsedTime phaseTimer = new ElapsedTime();
     private Follower follower;
     private Limelight3A limelight;
+    private LimelightCameraPreview cameraPreview;
     private DcMotorEx intake;
     private State state = State.DONE;
     private Pose parkPose;
@@ -147,6 +149,7 @@ public final class PedroPollenAuto extends OpMode {
         limelight = hardwareMap.get(Limelight3A.class, RobotConfig.LIMELIGHT);
         limelight.pipelineSwitch(RobotConfig.POLLEN_PIPELINE_INDEX);
         limelight.start();
+        cameraPreview = LimelightCameraPreview.start(limelight);
         telemetry.addLine("Intake test: set actual starting load with D-pad UP/DOWN before START.");
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose (in, deg)", "%.1f, %.1f, %.1f",
@@ -154,6 +157,7 @@ public final class PedroPollenAuto extends OpMode {
         telemetry.addData("Robot size (in)", "%.0f x %.0f",
                 RobotConfig.ROBOT_LENGTH_INCHES, RobotConfig.ROBOT_WIDTH_INCHES);
         telemetry.addLine("Keep still while Pinpoint calibrates.");
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -174,6 +178,7 @@ public final class PedroPollenAuto extends OpMode {
         telemetry.addData("Start pose (in, deg)", "%.1f, %.1f, %.1f",
                 START_X, START_Y, Math.toDegrees(START_HEADING));
         telemetry.addLine(hasCapacity(heldPollen) ? "Ready to intake" : "Full: intake disabled");
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -223,6 +228,7 @@ public final class PedroPollenAuto extends OpMode {
             if (approachGoal != null) telemetry.addData("Pickup pose", approachGoal);
         }
         telemetry.addData("Pose", follower.pose());
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
@@ -494,6 +500,7 @@ public final class PedroPollenAuto extends OpMode {
 
     @Override
     public void stop() {
+        if (cameraPreview != null) cameraPreview.close();
         if (routine != null) Scheduler.cancel(routine);
         Scheduler.reset();
         if (follower != null) stopDrive();

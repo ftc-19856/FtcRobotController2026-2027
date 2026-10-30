@@ -9,11 +9,13 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.vision.LimelightCameraPreview;
 
 /** Read-only vision setup: does not map or command any mechanism or drive motor. */
 @TeleOp(name = "Hive Vision Setup", group = "Test")
 public final class HiveVisionSetup extends OpMode {
     private Limelight3A limelight;
+    private LimelightCameraPreview cameraPreview;
     private int requestedPipeline;
     private boolean previousUp;
     private boolean previousDown;
@@ -26,6 +28,7 @@ public final class HiveVisionSetup extends OpMode {
         limelight.setPollRateHz(50);
         selectPipeline(RobotConfig.POLLEN_PIPELINE_INDEX);
         limelight.start();
+        cameraPreview = LimelightCameraPreview.start(limelight);
         telemetry.setMsTransmissionInterval(100);
         showVision();
     }
@@ -103,11 +106,13 @@ public final class HiveVisionSetup extends OpMode {
             telemetry.addLine("3D values require correct tag size and 3D pipeline setup.");
             telemetry.addLine("A visible AprilTag alone does not establish that a hive is down.");
         }
+        if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
     }
 
     @Override
     public void stop() {
+        if (cameraPreview != null) cameraPreview.close();
         if (limelight != null) limelight.stop();
     }
 }

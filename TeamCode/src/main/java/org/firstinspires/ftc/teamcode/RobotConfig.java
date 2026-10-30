@@ -16,6 +16,7 @@ public final class RobotConfig {
     public static final String IMU = "imu";
     public static final String PINPOINT = "pinpoint";
     public static final String LIMELIGHT = "limelight";
+    public static final String LIMELIGHT_IP = "172.29.0.1";
     public static final int POLLEN_PIPELINE_INDEX = 0;
     public static final double ROBOT_LENGTH_INCHES = 18.0;
     public static final double ROBOT_WIDTH_INCHES = 18.0;
