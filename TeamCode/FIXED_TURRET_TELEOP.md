@@ -16,7 +16,10 @@ command. Turret reference capture and holding begin only after START.
   happen during INIT. No Pinpoint pose reset is used.
 
 - **X:** toggle intake/transfer motor `intake` between **-1.0** and off.
-- **Y:** independently toggle shooter motor `shooter` between **-1.0** and off.
+- **Y:** independently toggle shooter motor `shooter` between encoder velocity
+  PIDF at its configured maximum speed (same negative direction) and off.
+  Set `ShooterVelocity.SPEED_FRACTION` in Panels to reduce speed; see
+  [SHOOTER_PIDF.md](SHOOTER_PIDF.md) for gains and target/actual speed telemetry.
 - Both start **off**. Holding a button cannot repeatedly toggle, and buttons
   held across START must be released and pressed again before switching on.
 - Turret motor `turret` holds the encoder position captured at START, using

@@ -6,6 +6,7 @@ import com.bylazar.telemetry.PanelsTelemetry;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
@@ -13,19 +14,19 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.drive.MecanumDrive.WheelPowers;
 import org.firstinspires.ftc.teamcode.util.Toggle;
+import org.firstinspires.ftc.teamcode.util.ShooterVelocity;
 
 /** Robot-centric driving with toggleable intake/shooter and a fixed turret. */
 @TeleOp(name = "Fixed Turret Intake Shooter", group = "Competition")
 public final class FixedTurretIntakeShooterTeleOp extends OpMode {
     public static final double INTAKE_POWER = -1.0;
-    public static final double SHOOTER_POWER = -1.0;
     public static final double TURRET_HOLD_POWER = 0.2;
     public static final double BLOCKER_BLOCKED_POSITION = 0.155;
     public static final double BLOCKER_CLEAR_POSITION = 0.0;
 
     private DcMotor intake;
     private MecanumDrive drive;
-    private DcMotor shooter;
+    private ShooterVelocity shooter;
     private DcMotor turret;
     private Servo blocker;
     private Toggle intakeToggle;
@@ -41,18 +42,15 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         drive = new MecanumDrive(hardwareMap);
         drive.resetYaw();
         intake = hardwareMap.get(DcMotor.class, RobotConfig.INTAKE_MOTOR);
-        shooter = hardwareMap.get(DcMotor.class, RobotConfig.SHOOTER_MOTOR);
+        shooter = new ShooterVelocity(hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR));
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);
         blocker = hardwareMap.get(Servo.class, RobotConfig.BLOCKER_SERVO);
 
         intake.setPower(0);
-        shooter.setPower(0);
         turret.setPower(0);
-        // Match the -1 intake / -1 shooter directions in the user's working test.
+        // Match the -1 intake direction in the user's working test.
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
-        shooter.setDirection(DcMotorSimple.Direction.FORWARD);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         telemetry.addLine("Ready. Mechanisms remain still until START.");
@@ -83,7 +81,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         intakeToggle.update(gamepad1.x);
         shooterToggle.update(gamepad1.y);
         intake.setPower(intakeToggle.get() ? INTAKE_POWER : 0);
-        shooter.setPower(shooterToggle.get() ? SHOOTER_POWER : 0);
+        shooter.setEnabled(shooterToggle.get());
         turret.setPower(TURRET_HOLD_POWER);
         if (gamepad1.a) {
             blocker.setPosition(BLOCKER_CLEAR_POSITION);
@@ -102,6 +100,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         telemetry.addData("Drive BL/BR", "%.2f / %.2f", powers.backLeft, powers.backRight);
         telemetry.addData("Intake", intakeToggle.get() ? "ON" : "OFF");
         telemetry.addData("Shooter", shooterToggle.get() ? "ON" : "OFF");
+        shooter.addTelemetry(telemetry);
         telemetry.addData("Turret hold / actual ticks", "%d / %d",
                 turretHoldTicks, turret.getCurrentPosition());
         telemetry.addData("Blocker target", blocker.getPosition());
@@ -114,7 +113,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
         running = false;
         if (drive != null) drive.stop();
         if (intake != null) intake.setPower(0);
-        if (shooter != null) shooter.setPower(0);
+        if (shooter != null) shooter.stop();
         if (turret != null) turret.setPower(0);
         // Cancelling INIT must not reposition the servo.
         if (wasRunning && blocker != null) {

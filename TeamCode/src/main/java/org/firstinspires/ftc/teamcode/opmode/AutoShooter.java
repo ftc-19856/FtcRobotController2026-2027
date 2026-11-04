@@ -1,12 +1,14 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.util.ShooterVelocity;
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 /**
  * The shooter, turret and blocker as the autonomous modes use them, set up the same way as
@@ -15,20 +17,15 @@ import org.firstinspires.ftc.teamcode.RobotConfig;
  * transfer, so the caller feeds by running the intake while the blocker is open.
  */
 final class AutoShooter {
-    private final DcMotor shooter;
+    private final ShooterVelocity shooter;
     private final DcMotor turret;
     private final Servo blocker;
 
     AutoShooter(HardwareMap hardwareMap) {
-        shooter = hardwareMap.get(DcMotor.class, RobotConfig.SHOOTER_MOTOR);
+        shooter = new ShooterVelocity(hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR));
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);
         blocker = hardwareMap.get(Servo.class, RobotConfig.BLOCKER_SERVO);
-        shooter.setPower(0);
         turret.setPower(0);
-        shooter.setDirection(DcMotorSimple.Direction.FORWARD);
-        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        // A braking flywheel would jerk the robot and wear the motor; let it spin down.
-        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
@@ -47,7 +44,7 @@ final class AutoShooter {
     }
 
     void spinUp() {
-        shooter.setPower(FixedTurretIntakeShooterTeleOp.SHOOTER_POWER);
+        shooter.setEnabled(true);
     }
 
     void openBlocker() {
@@ -57,11 +54,11 @@ final class AutoShooter {
     /** Closes the blocker and stops the flywheel; leaves the turret setting unchanged. */
     void finishShooting() {
         setBlocker(FixedTurretIntakeShooterTeleOp.BLOCKER_BLOCKED_POSITION);
-        shooter.setPower(0);
+        shooter.stop();
     }
 
     void stop() {
-        shooter.setPower(0);
+        shooter.stop();
         turret.setPower(0);
     }
 
@@ -69,4 +66,8 @@ final class AutoShooter {
         blocker.setPosition(position);
         if (blocker instanceof ServoImplEx) ((ServoImplEx) blocker).setPwmEnable();
     }
+
+    void update() { shooter.update(); }
+
+    void addTelemetry(Telemetry telemetry) { shooter.addTelemetry(telemetry); }
 }

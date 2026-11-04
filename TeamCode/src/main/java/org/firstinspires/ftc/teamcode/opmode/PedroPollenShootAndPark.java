@@ -287,6 +287,7 @@ public class PedroPollenShootAndPark extends OpMode {
             Scheduler.execute();
         }
         follower.update();
+        shooter.update();
         telemetry.addData("Auto revision", AUTO_REVISION);
         telemetry.addData("State", state);
         telemetry.addData("Stop reason", stopReason);
@@ -319,6 +320,7 @@ public class PedroPollenShootAndPark extends OpMode {
         }
         showColor();
         showVision();
+        shooter.addTelemetry(telemetry);
         telemetry.addData("Pose", follower.pose());
         if (cameraPreview != null) cameraPreview.addTelemetry(telemetry);
         telemetry.update();
