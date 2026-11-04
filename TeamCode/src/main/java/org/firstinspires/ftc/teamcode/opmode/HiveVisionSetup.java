@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import com.bylazar.telemetry.JoinedTelemetry;
+import com.bylazar.telemetry.PanelsTelemetry;
+
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
@@ -24,6 +27,7 @@ public final class HiveVisionSetup extends OpMode {
 
     @Override
     public void init() {
+        telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
         limelight = hardwareMap.get(Limelight3A.class, RobotConfig.LIMELIGHT);
         limelight.setPollRateHz(50);
         selectPipeline(RobotConfig.POLLEN_PIPELINE_INDEX);

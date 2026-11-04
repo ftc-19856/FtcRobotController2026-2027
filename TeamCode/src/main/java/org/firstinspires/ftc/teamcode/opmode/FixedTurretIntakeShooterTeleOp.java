@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import com.bylazar.telemetry.JoinedTelemetry;
+import com.bylazar.telemetry.PanelsTelemetry;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -32,6 +35,7 @@ public final class FixedTurretIntakeShooterTeleOp extends OpMode {
 
     @Override
     public void init() {
+        telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
         running = false;
         // Prepare hardware during INIT; only zero motor power is commanded.
         drive = new MecanumDrive(hardwareMap);

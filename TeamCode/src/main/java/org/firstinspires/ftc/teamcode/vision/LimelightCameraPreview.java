@@ -66,6 +66,7 @@ public final class LimelightCameraPreview implements CameraStreamSource, AutoClo
     public void setTrackingStatus(String text) { trackingStatus = text; }
 
     public void addTelemetry(Telemetry telemetry) {
+        telemetry.addData("Panels dashboard", "http://192.168.43.1:8001");
         telemetry.addLine("Camera preview: INIT > 3-dot menu > Camera Stream (tap to refresh)");
         telemetry.addData("Live video", "http://192.168.43.1:8080/limelight");
         telemetry.addData("Preview status", status);

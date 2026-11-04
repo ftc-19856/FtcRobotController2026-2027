@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import com.bylazar.telemetry.JoinedTelemetry;
+import com.bylazar.telemetry.PanelsTelemetry;
+
 import static com.pedropathing.api.Paths.line;
 import static com.pedropathing.ivy.commands.Commands.instant;
 import static com.pedropathing.ivy.commands.Commands.lazy;
@@ -130,6 +133,7 @@ public final class PedroPollenAuto extends OpMode {
 
     @Override
     public void init() {
+        telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
         Scheduler.reset();
         // Pedro uses this setting when its drivetrain is stopped. Path-following
         // powers and Foresight tuning remain unchanged.

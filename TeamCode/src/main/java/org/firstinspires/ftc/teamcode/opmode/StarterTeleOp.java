@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import com.bylazar.telemetry.JoinedTelemetry;
+import com.bylazar.telemetry.PanelsTelemetry;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -17,6 +20,7 @@ public final class StarterTeleOp extends OpMode {
 
     @Override
     public void init() {
+        telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
         drive = new MecanumDrive(hardwareMap);
         try {
             intake = hardwareMap.get(DcMotorEx.class, RobotConfig.INTAKE_MOTOR);

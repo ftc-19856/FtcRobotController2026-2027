@@ -1,5 +1,9 @@
 # Limelight camera preview
 
+Panels is also available at **http://192.168.43.1:8001** after deploying the
+updated app. Add its **Limelight Stream** widget for live video and **Telemetry**
+for the OpMode readings. See [PANELS.md](PANELS.md) for setup and supported modes.
+
 Deploy the updated app, then INIT one of these modes:
 
 - Search Intake And Return (the legacy intake/return autonomous).
@@ -27,8 +31,8 @@ to relay the camera feed, so the camera stays plugged into the Control Hub.
 Refresh the page after reinitializing/changing an OpMode. Stop closes preview
 connections. At most two camera preview connections are allowed at once.
 
-No new dependencies, camera tuning changes, or robot hardware-configuration
-changes are needed. The camera address is `RobotConfig.LIMELIGHT_IP`, currently
+The SDK/browser preview below needs no camera tuning or robot hardware-configuration
+changes. Panels is a separate project dependency. The camera address is `RobotConfig.LIMELIGHT_IP`, currently
 172.29.0.1, matching Main.xml. Preview requests run outside the driving loop;
 no images are fetched until a DS/browser viewer requests them. Browser viewers
 consume Wi-Fi bandwidth while open.
