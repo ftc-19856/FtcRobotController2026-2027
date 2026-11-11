@@ -7,15 +7,19 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.StringJoiner;
 import org.firstinspires.ftc.teamcode.RobotConfig;
 
 /** Records manually scored pollen shots while driving and aiming with Pedro. */
 @Configurable
 @TeleOp(name = "Pedro Shooter Tuning", group = "Test")
 public final class PedroShooterTuning extends PedroHiveTurretAim {
+    private static final int POLLEN_PER_BURST = 4;
     public static int START_SPEED_PERCENT = 65;
     // Starting estimate from the approximately 2260–2300 ticks/s seen at saturation.
     public static double FULL_SPEED_TICKS_PER_SECOND = 2300;
@@ -26,6 +30,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     private final Gamepad previous = new Gamepad();
     private DcMotor intake;
     private DcMotorEx flywheel;
+    private Servo blocker;
+    private boolean started;
     private TuningFlywheelControl flywheelControl;
     private ShotTuningLog log;
     private int speedPercent;
@@ -40,6 +46,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     @Override
     public void init() {
         super.init();
+        started = false;
+        blocker = hardwareMap.get(Servo.class, RobotConfig.BLOCKER_SERVO);
         intake = hardwareMap.get(DcMotor.class, RobotConfig.INTAKE_MOTOR);
         intake.setPower(0);
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -66,6 +74,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         trial = null;
         savedTrials = 0;
         status = "Drive to a test spot and let the flywheel settle.";
+        setBlocker(false);
+        started = true;
         intake.setPower(FixedTurretIntakeShooterTeleOp.INTAKE_POWER);
         flywheel.setPower(-speedPercent / 100.0);
     }
@@ -99,17 +109,20 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         String readiness = recordingReadiness(targetAngle, actualAngle, distance, targetSpeed, actualSpeed);
 
         if (trial != null && gamepad1.x && !previous.x) {
+            setBlocker(false);
             trial = null;
             status = "Trial discarded.";
         } else if (trial == null && gamepad1.right_bumper && !previous.right_bumper) {
             trial = new Trial(pose, distance, targetAngle, actualAngle, targetSpeed, actualSpeed);
-            status = "Recording. Release RB after the pollen leaves.";
+            setBlocker(true);
+            status = "Feeding burst. Release RB after the fourth pollen.";
         } else if (trial != null && trial.recording) {
             trial.sample(pose, targetAngle, actualAngle, actualSpeed);
             if (!gamepad1.right_bumper) {
+                setBlocker(false);
                 trial.recording = false;
                 trial.durationSeconds = getRuntime() - trial.startSeconds;
-                status = "Mark the shot result.";
+                status = "Mark four results in firing order.";
                 scoreTrial();
             }
         } else if (trial != null) {
@@ -126,8 +139,9 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         telemetry.addData("Saved trials", savedTrials);
         if (trial == null) {
             telemetry.addLine("D-pad up/down changes speed 5%. Left/right changes it 1%.");
-            telemetry.addLine("Hold RB to record while feeding one pollen.");
+            telemetry.addLine("Hold RB to open blocker and record four pollen.");
         } else if (!trial.recording) {
+            telemetry.addData("Burst results", "%d / %d  %s", trial.scored(), POLLEN_PER_BURST, trial.sequence);
             telemetry.addLine("A hit | B miss | D-pad up high | down low | X discard");
         }
     }
@@ -142,19 +156,34 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     }
 
     private void scoreTrial() {
-        if (gamepad1.a && !previous.a) trial.hits++;
-        else if (gamepad1.b && !previous.b) trial.misses++;
-        else if (gamepad1.dpad_up && !previous.dpad_up) trial.high++;
-        else if (gamepad1.dpad_down && !previous.dpad_down) trial.low++;
-        else return;
+        if (gamepad1.a && !previous.a) {
+            trial.hits++;
+            trial.sequence.add("hit");
+        } else if (gamepad1.b && !previous.b) {
+            trial.misses++;
+            trial.sequence.add("miss");
+        } else if (gamepad1.dpad_up && !previous.dpad_up) {
+            trial.high++;
+            trial.sequence.add("high");
+        } else if (gamepad1.dpad_down && !previous.dpad_down) {
+            trial.low++;
+            trial.sequence.add("low");
+        }
+        if (trial.scored() < POLLEN_PER_BURST) return;
         try {
             log.append(trial.csv());
             savedTrials++;
-            status = trial.hits == 1 ? "Saved hit." : "Saved miss.";
+            status = "Saved burst: " + trial.sequence;
         } catch (IOException exception) {
             status = "Could not save trial: " + exception.getMessage();
         }
         trial = null;
+    }
+
+    private void setBlocker(boolean open) {
+        blocker.setPosition(open ? FixedTurretIntakeShooterTeleOp.BLOCKER_CLEAR_POSITION
+                : FixedTurretIntakeShooterTeleOp.BLOCKER_BLOCKED_POSITION);
+        if (blocker instanceof ServoImplEx) ((ServoImplEx) blocker).setPwmEnable();
     }
 
     private double batteryVolts() {
@@ -169,6 +198,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     public void stop() {
         if (intake != null) intake.setPower(0);
         if (flywheel != null) flywheel.setPower(0);
+        if (started) setBlocker(false);
         super.stop();
     }
 
@@ -186,6 +216,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         private int misses;
         private int high;
         private int low;
+        private final StringJoiner sequence = new StringJoiner(" ");
 
         private Trial(Pose pose, double distance, double targetAngle, double actualAngle,
                       double targetSpeed, double actualSpeed) {
@@ -196,8 +227,10 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
             setup = String.format(Locale.US, "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%.3f,%s,%.3f,%.3f,%d",
                     pose.x(), pose.y(), Math.toDegrees(pose.heading()), distance, targetAngle, actualAngle,
                     speedPercent, targetSpeed, actualSpeed, batteryVolts(), ShotTuningLog.quote(HOOD_SETTING),
-                    pivotForward, pivotLeft, 1);
+                    pivotForward, pivotLeft, POLLEN_PER_BURST);
         }
+
+        private int scored() { return hits + misses + high + low; }
 
         private void sample(Pose pose, double targetAngle, double actualAngle, double actualSpeed) {
             minimumSpeed = Math.min(minimumSpeed, actualSpeed);
@@ -208,8 +241,9 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         }
 
         private String csv() {
-            return setup + String.format(Locale.US, ",%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d",
-                    minimumSpeed, durationSeconds, movement, headingChange, aimError, hits, misses, high, low);
+            return setup + String.format(Locale.US, ",%.3f,%.3f,%.3f,%.3f,%.3f,%d,%d,%d,%d,%s",
+                    minimumSpeed, durationSeconds, movement, headingChange, aimError, hits, misses, high, low,
+                    sequence);
         }
     }
 }

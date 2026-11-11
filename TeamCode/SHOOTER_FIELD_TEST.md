@@ -17,11 +17,13 @@ center the sticks, and wait for the turret and flywheel readings to settle.
   is 65% of `FULL_SPEED_TICKS_PER_SECOND`, which starts at 2300 based on the
   logged flywheel readings. The tuning OpMode controls velocity using the
   encoder speed magnitude. Compare the target and actual ticks/s on telemetry.
-- Hold **RB** just before feeding one pollen and release it after the shot.
-  RB only records data. Feed through your normal intake.
-- After releasing RB, mark the shot with **A** for hit, **B** for miss,
+- Load four pollen. Hold **RB** to open the blocker and record the burst.
+  Release RB after the fourth shot to close the blocker.
+- After releasing RB, mark all four shots in firing order with **A** for hit, **B** for miss,
   **D-pad up** for high, or **D-pad down** for low. High and low count as misses.
-  Press **X** to discard a trial. A trial saves as soon as you mark the result.
+  For example, **Up, Up, Down, A** saves `high high low hit`. Press **X** to
+  discard a trial. The burst saves after the fourth result, and the D-pad
+  returns to adjusting speed.
 
 The log captures pose and measured flywheel speed when you press RB, the lowest
 measured speed while held, movement, and aim error. Keep the robot still while

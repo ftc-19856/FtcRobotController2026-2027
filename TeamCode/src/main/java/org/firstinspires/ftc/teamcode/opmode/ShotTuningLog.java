@@ -17,7 +17,7 @@ public final class ShotTuningLog {
     private static final String HEADER = "session,x_in,y_in,heading_deg,distance_in,turret_target_deg,"
             + "turret_actual_deg,speed_percent,target_ticks_s,actual_ticks_s,battery_v,hood,"
             + "pivot_forward_in,pivot_left_in,pollen,min_ticks_s,window_s,movement_in,"
-            + "heading_change_deg,max_aim_error_deg,hits,misses,high,low";
+            + "heading_change_deg,max_aim_error_deg,hits,misses,high,low,shot_sequence";
     private final File directory;
     private File session;
 
