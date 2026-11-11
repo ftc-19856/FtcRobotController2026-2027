@@ -23,7 +23,8 @@ public final class PedroHiveTurretAim extends OpMode {
     private static final double TURRET_POWER = 0.15;
 
     // Encoder change per degree of counterclockwise turret rotation, including gearing.
-    public static double TURRET_TICKS_PER_DEGREE = 0;
+    // Measured on the assembled turret: 15028 straight ahead, 15248 at 45 degrees clockwise.
+    public static double TURRET_TICKS_PER_DEGREE = (15248 - 15028) / CALIBRATION_ANGLE_DEGREES;
 
     private PinpointLocalizer localizer;
     private GoBildaPinpointDriver pinpoint;
@@ -64,8 +65,8 @@ public final class PedroHiveTurretAim extends OpMode {
         previousY = gamepad1.y;
         telemetry.addData("Blue start X / Y / heading (deg)", "%.1f / %.1f / %.1f",
                 BLUE_START.x(), BLUE_START.y(), Math.toDegrees(BLUE_START.heading()));
-        telemetry.addLine("Calibrate by hand in INIT: X at straight ahead, Y at 45 degrees clockwise.");
-        telemetry.addLine("Return the turret to straight ahead before START.");
+        telemetry.addLine("Point the turret straight ahead before START.");
+        telemetry.addLine("Optional recalibration: X straight ahead, Y at 45 degrees clockwise.");
         telemetry.addData("Pinpoint", pinpoint.getDeviceStatus());
         telemetry.addData("Turret encoder ticks", encoderTicks);
         if (calibrationForwardTicks != null) {
