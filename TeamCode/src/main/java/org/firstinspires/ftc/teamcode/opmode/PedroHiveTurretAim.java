@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.teamcode.RobotConfig;
+import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 import org.firstinspires.ftc.teamcode.pedro.BlueAlliancePaths;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
@@ -28,6 +29,7 @@ public final class PedroHiveTurretAim extends OpMode {
 
     private PinpointLocalizer localizer;
     private GoBildaPinpointDriver pinpoint;
+    private MecanumDrive drive;
     private DcMotor turret;
     private int forwardTicks;
     private double ticksPerDegree;
@@ -40,6 +42,7 @@ public final class PedroHiveTurretAim extends OpMode {
     @Override
     public void init() {
         telemetry = new JoinedTelemetry(telemetry, PanelsTelemetry.INSTANCE.getFtcTelemetry());
+        drive = new MecanumDrive(hardwareMap);
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);
         turret.setPower(0);
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
@@ -66,6 +69,7 @@ public final class PedroHiveTurretAim extends OpMode {
         telemetry.addData("Blue start X / Y / heading (deg)", "%.1f / %.1f / %.1f",
                 BLUE_START.x(), BLUE_START.y(), Math.toDegrees(BLUE_START.heading()));
         telemetry.addLine("Point the turret straight ahead before START.");
+        telemetry.addLine("Left stick moves the robot. Right stick turns it after START.");
         telemetry.addLine("Optional recalibration: X straight ahead, Y at 45 degrees clockwise.");
         telemetry.addData("Pinpoint", pinpoint.getDeviceStatus());
         telemetry.addData("Turret encoder ticks", encoderTicks);
@@ -106,6 +110,7 @@ public final class PedroHiveTurretAim extends OpMode {
             status = aim(pose);
         }
         if (!status.equals("Tracking")) turret.setPower(0);
+        drive.driveRobotCentric(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         telemetry.addData("Aim", status);
         telemetry.addData("Robot X / Y / heading (deg)", "%.1f / %.1f / %.1f",
                 pose.x(), pose.y(), Math.toDegrees(pose.heading()));
@@ -146,6 +151,7 @@ public final class PedroHiveTurretAim extends OpMode {
 
     @Override
     public void stop() {
+        if (drive != null) drive.stop();
         if (turret != null) turret.setPower(0);
     }
 }
