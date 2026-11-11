@@ -31,6 +31,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     private DcMotor intake;
     private DcMotorEx flywheel;
     private Servo blocker;
+    private boolean blockerOpen;
     private boolean started;
     private TuningFlywheelControl flywheelControl;
     private ShotTuningLog log;
@@ -107,19 +108,19 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         double distance = Math.hypot(HIVE_X - origin.x(), HIVE_Y - origin.y());
         String readiness = recordingReadiness(targetAngle, actualAngle, distance, targetSpeed, actualSpeed);
 
+        if (gamepad1.left_bumper != blockerOpen) setBlocker(gamepad1.left_bumper);
         if (trial != null && gamepad1.x && !previous.x) {
-            stopFeeding();
+            intake.setPower(0);
             trial = null;
             status = "Trial discarded.";
         } else if (trial == null && gamepad1.right_bumper && !previous.right_bumper) {
             trial = new Trial(pose, distance, targetAngle, actualAngle, targetSpeed, actualSpeed);
-            setBlocker(true);
             intake.setPower(FixedTurretIntakeShooterTeleOp.INTAKE_POWER);
             status = "Feeding burst. Release RB after the fourth pollen.";
         } else if (trial != null && trial.recording) {
             trial.sample(pose, targetAngle, actualAngle, actualSpeed);
             if (!gamepad1.right_bumper) {
-                stopFeeding();
+                intake.setPower(0);
                 trial.recording = false;
                 trial.durationSeconds = getRuntime() - trial.startSeconds;
                 status = "Mark four results in firing order.";
@@ -137,9 +138,10 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         telemetry.addData("Shot trial", status);
         telemetry.addData("Shot readings", readiness);
         telemetry.addData("Saved trials", savedTrials);
+        telemetry.addData("Blocker (hold LB)", blockerOpen ? "Open" : "Closed");
         if (trial == null) {
             telemetry.addLine("D-pad up/down changes speed 5%. Left/right changes it 1%.");
-            telemetry.addLine("Hold RB to run intake, open blocker, and record four pollen.");
+            telemetry.addLine("Hold RB to run intake and record four pollen.");
         } else if (!trial.recording) {
             telemetry.addData("Burst results", "%d / %d  %s", trial.scored(), POLLEN_PER_BURST, trial.sequence);
             telemetry.addLine("A hit | B miss | D-pad up high | down low | X discard");
@@ -184,11 +186,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         blocker.setPosition(open ? FixedTurretIntakeShooterTeleOp.BLOCKER_CLEAR_POSITION
                 : FixedTurretIntakeShooterTeleOp.BLOCKER_BLOCKED_POSITION);
         if (blocker instanceof ServoImplEx) ((ServoImplEx) blocker).setPwmEnable();
-    }
-
-    private void stopFeeding() {
-        intake.setPower(0);
-        setBlocker(false);
+        blockerOpen = open;
     }
 
     private double batteryVolts() {
