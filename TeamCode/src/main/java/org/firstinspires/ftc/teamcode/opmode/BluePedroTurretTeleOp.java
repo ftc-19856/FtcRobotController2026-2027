@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import org.firstinspires.ftc.teamcode.RobotConfig;
@@ -22,6 +23,7 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     // Use this target until field testing supplies a distance-based speed table.
     public static double SHOOTER_TARGET_TICKS_PER_SECOND = 1495;
 
+    private final Gamepad previousSpeedButtons = new Gamepad();
     private DcMotor intake;
     private DcMotorEx flywheel;
     private Servo blocker;
@@ -30,6 +32,7 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     private Toggle secondHive;
     private TuningFlywheelControl flywheelControl;
     private double previousSpeedUpdate;
+    private double selectedSpeed;
     private boolean useBlueStart;
     private boolean started;
 
@@ -79,6 +82,9 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
         secondHive = new Toggle(false, gamepad1.b);
         flywheelControl = new TuningFlywheelControl(FULL_SPEED_TICKS_PER_SECOND);
         previousSpeedUpdate = getRuntime();
+        double startingSpeed = SHOOTER_TARGET_TICKS_PER_SECOND;
+        selectedSpeed = Double.isFinite(startingSpeed) ? clampSpeed(startingSpeed) : 1495;
+        previousSpeedButtons.copy(gamepad1);
         setBlocker(false);
         started = true;
     }
@@ -99,9 +105,13 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
         intake.setPower(intakeToggle.get() ? FixedTurretIntakeShooterTeleOp.INTAKE_POWER : 0);
         setBlocker(gamepad1.a);
 
-        double configuredSpeed = SHOOTER_TARGET_TICKS_PER_SECOND;
-        double targetSpeed = shooterToggle.get() && Double.isFinite(configuredSpeed)
-                ? Math.max(0, Math.min(FULL_SPEED_TICKS_PER_SECOND, configuredSpeed)) : 0;
+        int speedChangePercent = (gamepad1.dpad_up && !previousSpeedButtons.dpad_up ? 5 : 0)
+                - (gamepad1.dpad_down && !previousSpeedButtons.dpad_down ? 5 : 0)
+                + (gamepad1.dpad_right && !previousSpeedButtons.dpad_right ? 1 : 0)
+                - (gamepad1.dpad_left && !previousSpeedButtons.dpad_left ? 1 : 0);
+        selectedSpeed = clampSpeed(selectedSpeed + FULL_SPEED_TICKS_PER_SECOND * speedChangePercent / 100.0);
+        previousSpeedButtons.copy(gamepad1);
+        double targetSpeed = shooterToggle.get() ? selectedSpeed : 0;
         double encoderSpeed = flywheel.getVelocity();
         double now = getRuntime();
         flywheel.setPower(-flywheelControl.power(targetSpeed, encoderSpeed, now - previousSpeedUpdate));
@@ -110,8 +120,14 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
         telemetry.addData("Hive X / Y", "%.0f / %.0f", hiveX(), hiveY());
         telemetry.addData("Hive distance (in)", "%.1f", Math.hypot(hiveX() - pose.x(), hiveY() - pose.y()));
         telemetry.addData("Shooter target / actual (ticks/s)", "%.0f / %.0f", targetSpeed, Math.abs(encoderSpeed));
+        telemetry.addData("Selected shooter speed (ticks/s)", "%.0f", selectedSpeed);
         telemetry.addData("Intake", intakeToggle.get() ? "On" : "Off");
         telemetry.addLine("X intake | Y shooter | Hold A blocker open | B switch hive");
+        telemetry.addLine("D-pad up/down: shooter speed +/-5%. Left/right: +/-1%.");
+    }
+
+    private static double clampSpeed(double speed) {
+        return Math.max(0, Math.min(FULL_SPEED_TICKS_PER_SECOND, speed));
     }
 
     private void setBlocker(boolean open) {
