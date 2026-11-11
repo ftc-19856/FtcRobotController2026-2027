@@ -23,8 +23,8 @@ public final class PedroHiveTurretAim extends OpMode {
     private static final double TURRET_POWER = 0.15;
 
     // Encoder change per degree of counterclockwise turret rotation, including gearing.
-    // Measured on the assembled turret: 15028 straight ahead, 15248 at 45 degrees clockwise.
-    public static double TURRET_TICKS_PER_DEGREE = (15248 - 15028) / CALIBRATION_ANGLE_DEGREES;
+    // Measured in INIT: 238 straight ahead, -139 at 90 degrees clockwise.
+    public static double TURRET_TICKS_PER_DEGREE = (-139 - 238) / -90.0;
 
     private PinpointLocalizer localizer;
     private GoBildaPinpointDriver pinpoint;
@@ -109,6 +109,9 @@ public final class PedroHiveTurretAim extends OpMode {
         telemetry.addData("Aim", status);
         telemetry.addData("Robot X / Y / heading (deg)", "%.1f / %.1f / %.1f",
                 pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        telemetry.addData("Pinpoint", pinpoint.getDeviceStatus());
+        telemetry.addData("Turret zero ticks", forwardTicks);
+        telemetry.addData("Turret ticks per CCW degree", "%.4f", ticksPerDegree);
         telemetry.addData("Turret encoder ticks", turret.getCurrentPosition());
         telemetry.update();
     }
