@@ -16,10 +16,10 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 @Configurable
 @TeleOp(name = "Pedro Hive Turret Aim", group = "Test")
-public final class PedroHiveTurretAim extends OpMode {
+public class PedroHiveTurretAim extends OpMode {
     private static final Pose BLUE_START = new BlueAlliancePaths().start;
-    private static final double HIVE_X = 83;
-    private static final double HIVE_Y = 83;
+    protected static final double HIVE_X = 83;
+    protected static final double HIVE_Y = 83;
     private static final double CALIBRATION_ANGLE_DEGREES = -45;
     private static final double TURRET_POWER = 0.15;
 
@@ -117,13 +117,24 @@ public final class PedroHiveTurretAim extends OpMode {
         telemetry.addData("Pinpoint", pinpoint.getDeviceStatus());
         telemetry.addData("Turret zero ticks", forwardTicks);
         telemetry.addData("Turret ticks per CCW degree", "%.4f", ticksPerDegree);
-        telemetry.addData("Turret encoder ticks", turret.getCurrentPosition());
+        int encoderTicks = turret.getCurrentPosition();
+        telemetry.addData("Turret encoder ticks", encoderTicks);
+        if (status.equals("Tracking")) {
+            afterAimUpdate(pose, targetDegrees, (encoderTicks - (double) forwardTicks) / ticksPerDegree);
+        } else {
+            afterAimUpdate(pose, Double.NaN, Double.NaN);
+        }
         telemetry.update();
     }
 
+    protected void afterAimUpdate(Pose pose, double targetAngle, double actualAngle) { }
+
+    protected Pose aimOrigin(Pose pose) { return pose; }
+
     private String aim(Pose pose) {
-        double dx = HIVE_X - pose.x();
-        double dy = HIVE_Y - pose.y();
+        Pose origin = aimOrigin(pose);
+        double dx = HIVE_X - origin.x();
+        double dy = HIVE_Y - origin.y();
         double requestedDegrees = Math.toDegrees(Math.atan2(dy, dx) - pose.heading());
         double distance = Math.hypot(dx, dy);
         if (!Double.isFinite(requestedDegrees) || !Double.isFinite(distance)) {

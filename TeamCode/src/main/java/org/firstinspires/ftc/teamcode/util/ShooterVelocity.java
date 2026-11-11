@@ -50,13 +50,21 @@ public final class ShooterVelocity {
     }
 
     public void setEnabled(boolean enabled) {
+        setEnabled(enabled, SPEED_FRACTION);
+    }
+
+    public void setEnabled(boolean enabled, double fraction) {
         this.enabled = enabled;
-        update();
+        update(fraction);
     }
 
     /** The Hub runs the PID loop; this refreshes commands and live Panels settings. */
     public void update() {
-        double p = P, i = I, d = D, f = F, fraction = SPEED_FRACTION;
+        update(SPEED_FRACTION);
+    }
+
+    private void update(double fraction) {
+        double p = P, i = I, d = D, f = F;
         settingsValid = Double.isFinite(p) && p >= 0 && Double.isFinite(i) && i >= 0
                 && Double.isFinite(d) && d >= 0 && Double.isFinite(f) && f >= 0
                 && Double.isFinite(fraction) && fraction >= 0 && fraction <= 1;
@@ -91,4 +99,6 @@ public final class ShooterVelocity {
         telemetry.addData("Shooter PIDF", "%.3f / %.3f / %.3f / %.3f", P, I, D, F);
         telemetry.addData("Shooter PIDF settings", settingsValid ? "VALID" : "INVALID: shooter stopped");
     }
+
+    public double targetTicksPerSecond() { return target; }
 }
