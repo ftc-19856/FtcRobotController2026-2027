@@ -82,25 +82,21 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         double actualSpeed = -flywheel.getVelocity();
         Pose origin = aimOrigin(pose);
         double distance = Math.hypot(HIVE_X - origin.x(), HIVE_Y - origin.y());
+        String readiness = recordingReadiness(targetAngle, actualAngle, distance, targetSpeed, actualSpeed);
 
         if (trial != null && gamepad1.x && !previous.x) {
             trial = null;
             status = "Trial discarded.";
         } else if (trial == null && gamepad1.right_bumper && !previous.right_bumper) {
-            if (Double.isFinite(targetAngle) && Double.isFinite(actualAngle)
-                    && Double.isFinite(distance) && targetSpeed > 0
-                    && Double.isFinite(actualSpeed) && actualSpeed > 0) {
-                trial = new Trial(pose, distance, targetAngle, actualAngle, targetSpeed, actualSpeed);
-                status = "Recording. Release RB after the pollen leaves.";
-            } else {
-                status = "Wait for turret tracking and flywheel speed before recording.";
-            }
+            trial = new Trial(pose, distance, targetAngle, actualAngle, targetSpeed, actualSpeed);
+            status = "Recording. Release RB after the pollen leaves.";
         } else if (trial != null && trial.recording) {
             trial.sample(pose, targetAngle, actualAngle, actualSpeed);
             if (!gamepad1.right_bumper) {
                 trial.recording = false;
                 trial.durationSeconds = getRuntime() - trial.startSeconds;
                 status = "Mark the shot result.";
+                scoreTrial();
             }
         } else if (trial != null) {
             scoreTrial();
@@ -111,6 +107,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         telemetry.addData("Shooter setting", "%d%%", speedPercent);
         shooter.addTelemetry(telemetry);
         telemetry.addData("Shot trial", status);
+        telemetry.addData("Shot readings", readiness);
         telemetry.addData("Saved trials", savedTrials);
         if (trial == null) {
             telemetry.addLine("D-pad up/down changes speed 5%. Left/right changes it 1%.");
@@ -118,6 +115,15 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         } else if (!trial.recording) {
             telemetry.addLine("A hit | B miss | D-pad up high | down low | X discard");
         }
+    }
+
+    private static String recordingReadiness(double targetAngle, double actualAngle, double distance,
+                                             double targetSpeed, double actualSpeed) {
+        if (!Double.isFinite(distance)) return "Pedro distance unavailable";
+        if (!Double.isFinite(targetAngle) || !Double.isFinite(actualAngle)) return "Turret tracking unavailable";
+        if (targetSpeed <= 0) return "Shooter target is zero";
+        if (!Double.isFinite(actualSpeed) || actualSpeed <= 0) return "No flywheel speed in commanded direction";
+        return "Pose, turret, and shooter readings available";
     }
 
     private void scoreTrial() {
