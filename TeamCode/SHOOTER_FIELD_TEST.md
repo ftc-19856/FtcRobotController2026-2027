@@ -17,9 +17,10 @@ center the sticks, and wait for the turret and flywheel readings to settle.
   is 65% of `FULL_SPEED_TICKS_PER_SECOND`, which starts at 2300 based on the
   logged flywheel readings. The tuning OpMode controls velocity using the
   encoder speed magnitude. Compare the target and actual ticks/s on telemetry.
-- Load four pollen. Hold **LB** to open the blocker. Hold **RB** to run the
-  intake and transfer and record the burst. After the fourth shot, release RB
-  to stop feeding and release LB to close the blocker.
+- Load four pollen. Hold **RB** to record, **LB** to open the blocker, and
+  **Right Trigger** to run the intake and transfer. After the fourth shot,
+  release Right Trigger to stop feeding, LB to close the blocker, and RB to
+  enter scoring mode.
 - After releasing RB, mark all four shots in firing order with **A** for hit, **B** for miss,
   **D-pad up** for high, or **D-pad down** for low. High and low count as misses.
   For example, **Up, Up, Down, A** saves `high high low hit`. Press **X** to

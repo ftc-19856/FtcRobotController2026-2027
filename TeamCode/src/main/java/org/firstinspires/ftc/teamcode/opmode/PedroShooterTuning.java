@@ -109,18 +109,17 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         String readiness = recordingReadiness(targetAngle, actualAngle, distance, targetSpeed, actualSpeed);
 
         if (gamepad1.left_bumper != blockerOpen) setBlocker(gamepad1.left_bumper);
+        boolean intakeOn = gamepad1.right_trigger > 0.5;
+        intake.setPower(intakeOn ? FixedTurretIntakeShooterTeleOp.INTAKE_POWER : 0);
         if (trial != null && gamepad1.x && !previous.x) {
-            intake.setPower(0);
             trial = null;
             status = "Trial discarded.";
         } else if (trial == null && gamepad1.right_bumper && !previous.right_bumper) {
             trial = new Trial(pose, distance, targetAngle, actualAngle, targetSpeed, actualSpeed);
-            intake.setPower(FixedTurretIntakeShooterTeleOp.INTAKE_POWER);
-            status = "Feeding burst. Release RB after the fourth pollen.";
+            status = "Recording burst. Release RB after the fourth pollen.";
         } else if (trial != null && trial.recording) {
             trial.sample(pose, targetAngle, actualAngle, actualSpeed);
             if (!gamepad1.right_bumper) {
-                intake.setPower(0);
                 trial.recording = false;
                 trial.durationSeconds = getRuntime() - trial.startSeconds;
                 status = "Mark four results in firing order.";
@@ -139,9 +138,10 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         telemetry.addData("Shot readings", readiness);
         telemetry.addData("Saved trials", savedTrials);
         telemetry.addData("Blocker (hold LB)", blockerOpen ? "Open" : "Closed");
+        telemetry.addData("Intake (hold right trigger)", intakeOn ? "On" : "Off");
         if (trial == null) {
             telemetry.addLine("D-pad up/down changes speed 5%. Left/right changes it 1%.");
-            telemetry.addLine("Hold RB to run intake and record four pollen.");
+            telemetry.addLine("Hold RB to record four pollen.");
         } else if (!trial.recording) {
             telemetry.addData("Burst results", "%d / %d  %s", trial.scored(), POLLEN_PER_BURST, trial.sequence);
             telemetry.addLine("A hit | B miss | D-pad up high | down low | X discard");
