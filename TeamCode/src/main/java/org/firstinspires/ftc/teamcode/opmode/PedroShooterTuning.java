@@ -28,7 +28,6 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     private ShooterVelocity shooter;
     private ShotTuningLog log;
     private int speedPercent;
-    private int pollenPerTrial;
     private double pivotForward;
     private double pivotLeft;
     private Trial trial;
@@ -54,7 +53,6 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         super.start();
         previous.copy(gamepad1);
         speedPercent = Math.max(1, Math.min(100, START_SPEED_PERCENT));
-        pollenPerTrial = 1;
         trial = null;
         savedTrials = 0;
         status = "Drive to a test spot and let the flywheel settle.";
@@ -78,9 +76,6 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
                     + (gamepad1.dpad_right && !previous.dpad_right ? 1 : 0)
                     - (gamepad1.dpad_left && !previous.dpad_left ? 1 : 0);
             speedPercent = Math.max(1, Math.min(100, speedPercent + change));
-            if (gamepad1.left_bumper && !previous.left_bumper) {
-                pollenPerTrial = pollenPerTrial == 1 ? 4 : 1;
-            }
         }
         shooter.setEnabled(true, speedPercent / 100.0);
         double targetSpeed = Math.abs(shooter.targetTicksPerSecond());
@@ -105,7 +100,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
             if (!gamepad1.right_bumper) {
                 trial.recording = false;
                 trial.durationSeconds = getRuntime() - trial.startSeconds;
-                status = "Mark each pollen result.";
+                status = "Mark the shot result.";
             }
         } else if (trial != null) {
             scoreTrial();
@@ -117,12 +112,10 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         shooter.addTelemetry(telemetry);
         telemetry.addData("Shot trial", status);
         telemetry.addData("Saved trials", savedTrials);
-        telemetry.addData("Pollen per trial", pollenPerTrial);
         if (trial == null) {
             telemetry.addLine("D-pad up/down changes speed 5%. Left/right changes it 1%.");
-            telemetry.addLine("LB selects 1 or 4 pollen. Hold RB to record while feeding.");
+            telemetry.addLine("Hold RB to record while feeding one pollen.");
         } else if (!trial.recording) {
-            telemetry.addData("Scored", "%d / %d", trial.scored(), pollenPerTrial);
             telemetry.addLine("A hit | B miss | D-pad up high | down low | X discard");
         }
     }
@@ -132,11 +125,11 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         else if (gamepad1.b && !previous.b) trial.misses++;
         else if (gamepad1.dpad_up && !previous.dpad_up) trial.high++;
         else if (gamepad1.dpad_down && !previous.dpad_down) trial.low++;
-        if (trial.scored() < pollenPerTrial) return;
+        else return;
         try {
             log.append(trial.csv());
             savedTrials++;
-            status = String.format(Locale.US, "Saved %d/%d hits.", trial.hits, pollenPerTrial);
+            status = trial.hits == 1 ? "Saved hit." : "Saved miss.";
         } catch (IOException exception) {
             status = "Could not save trial: " + exception.getMessage();
         }
@@ -182,10 +175,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
             setup = String.format(Locale.US, "%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%.3f,%s,%.3f,%.3f,%d",
                     pose.x(), pose.y(), Math.toDegrees(pose.heading()), distance, targetAngle, actualAngle,
                     speedPercent, targetSpeed, actualSpeed, batteryVolts(), ShotTuningLog.quote(HOOD_SETTING),
-                    pivotForward, pivotLeft, pollenPerTrial);
+                    pivotForward, pivotLeft, 1);
         }
-
-        private int scored() { return hits + misses + high + low; }
 
         private void sample(Pose pose, double targetAngle, double actualAngle, double actualSpeed) {
             minimumSpeed = Math.min(minimumSpeed, actualSpeed);
