@@ -1,0 +1,8 @@
+To restart adb go to the command line and run these in order
+.\adb kill-server
+.\adb start-server
+.\adb connect 192.168.43.1:5555
+.\adb devices
+
+If it isn't working run this then retry
+1. cd "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
