@@ -4,6 +4,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.JoinedTelemetry;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.pedropathing.math.Pose;
+import com.pedropathing.revhub.localizers.PinpointConfig;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -35,6 +36,7 @@ public class PedroHiveTurretAim extends OpMode {
     private double ticksPerDegree;
     private double targetDegrees;
     private boolean poseInitialized;
+    private String poseStartStatus;
     private Integer calibrationForwardTicks;
     private boolean previousX;
     private boolean previousY;
@@ -47,9 +49,11 @@ public class PedroHiveTurretAim extends OpMode {
         turret.setPower(0);
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         turret.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, Constants.localizerConfig.name.get());
-        localizer = new PinpointLocalizer(hardwareMap, Constants.localizerConfig);
+        PinpointConfig config = pinpointConfig();
+        pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, config.name.get());
+        localizer = new PinpointLocalizer(hardwareMap, config);
         poseInitialized = false;
+        poseStartStatus = "Restart once Pinpoint shows READY";
         calibrationForwardTicks = null;
         previousX = false;
         previousY = false;
@@ -66,8 +70,7 @@ public class PedroHiveTurretAim extends OpMode {
         }
         previousX = gamepad1.x;
         previousY = gamepad1.y;
-        telemetry.addData("Blue start X / Y / heading (deg)", "%.1f / %.1f / %.1f",
-                BLUE_START.x(), BLUE_START.y(), Math.toDegrees(BLUE_START.heading()));
+        showStartPose(localizer.pose());
         telemetry.addLine("Point the turret straight ahead before START.");
         telemetry.addLine("Left stick moves the robot. Right stick turns it after START.");
         telemetry.addLine("Optional recalibration: X straight ahead, Y at 45 degrees clockwise.");
@@ -84,7 +87,10 @@ public class PedroHiveTurretAim extends OpMode {
     public void start() {
         localizer.update();
         if (pinpoint.getDeviceStatus() != GoBildaPinpointDriver.DeviceStatus.READY) return;
-        localizer.setPose(BLUE_START);
+        if (!initializeFieldPose(localizer)) {
+            poseStartStatus = "Field pose unavailable. Select a known start pose in INIT.";
+            return;
+        }
         forwardTicks = turret.getCurrentPosition();
         ticksPerDegree = TURRET_TICKS_PER_DEGREE;
         targetDegrees = 0;
@@ -101,7 +107,7 @@ public class PedroHiveTurretAim extends OpMode {
         Pose pose = localizer.pose();
         String status;
         if (!poseInitialized) {
-            status = "Restart once Pinpoint shows READY";
+            status = poseStartStatus;
         } else if (pinpoint.getDeviceStatus() != GoBildaPinpointDriver.DeviceStatus.READY) {
             status = "Waiting for Pinpoint";
         } else if (!Double.isFinite(ticksPerDegree) || ticksPerDegree == 0) {
@@ -129,12 +135,31 @@ public class PedroHiveTurretAim extends OpMode {
 
     protected void afterAimUpdate(Pose pose, double targetAngle, double actualAngle) { }
 
+    protected PinpointConfig pinpointConfig() { return Constants.localizerConfig; }
+
+    protected boolean initializeFieldPose(PinpointLocalizer localizer) {
+        localizer.setPose(BLUE_START);
+        return true;
+    }
+
+    protected void showStartPose(Pose pose) {
+        telemetry.addData("Blue start X / Y / heading (deg)", "%.1f / %.1f / %.1f",
+                BLUE_START.x(), BLUE_START.y(), Math.toDegrees(BLUE_START.heading()));
+    }
+
     protected Pose aimOrigin(Pose pose) { return pose; }
+
+    protected double hiveX() { return HIVE_X; }
+
+    protected double hiveY() { return HIVE_Y; }
 
     private String aim(Pose pose) {
         Pose origin = aimOrigin(pose);
-        double dx = HIVE_X - origin.x();
-        double dy = HIVE_Y - origin.y();
+        double targetX = hiveX();
+        double targetY = hiveY();
+        if (!Double.isFinite(targetX) || !Double.isFinite(targetY)) return "Hive position unavailable";
+        double dx = targetX - origin.x();
+        double dy = targetY - origin.y();
         double requestedDegrees = Math.toDegrees(Math.atan2(dy, dx) - pose.heading());
         double distance = Math.hypot(dx, dy);
         if (!Double.isFinite(requestedDegrees) || !Double.isFinite(distance)) {

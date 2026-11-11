@@ -59,7 +59,16 @@ public class Constants {
         c.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
     });
 
-    public static PinpointConfig localizerConfig = new PinpointConfig(c -> {
+    public static PinpointConfig localizerConfig = new PinpointConfig(Constants::configurePinpoint);
+
+    public static PinpointConfig retainPinpointPoseConfig() {
+        return new PinpointConfig(c -> {
+            configurePinpoint(c);
+            c.resetMode.set(PinpointLocalizer.ResetMode.NONE);
+        });
+    }
+
+    private static void configurePinpoint(PinpointConfig c) {
         c.name.set("pinpoint");
         c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         // Corrected from the centered rotation check; offsets are in inches.
@@ -69,5 +78,5 @@ public class Constants {
         c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
         c.globalDistanceUnit.set(DistanceUnit.INCH);
         c.offsetUnits.set(DistanceUnit.INCH);
-    });
+    }
 }
