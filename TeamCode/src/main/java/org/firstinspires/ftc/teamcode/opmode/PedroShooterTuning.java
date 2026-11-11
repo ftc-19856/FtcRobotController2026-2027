@@ -11,13 +11,14 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import java.io.IOException;
 import java.util.Locale;
 import org.firstinspires.ftc.teamcode.RobotConfig;
-import org.firstinspires.ftc.teamcode.util.ShooterVelocity;
 
 /** Records manually scored pollen shots while driving and aiming with Pedro. */
 @Configurable
 @TeleOp(name = "Pedro Shooter Tuning", group = "Test")
 public final class PedroShooterTuning extends PedroHiveTurretAim {
     public static int START_SPEED_PERCENT = 65;
+    // Starting estimate from the approximately 2260–2300 ticks/s seen at saturation.
+    public static double FULL_SPEED_TICKS_PER_SECOND = 2300;
     public static String HOOD_SETTING = "fixed";
     public static double PIVOT_FORWARD_IN = 0;
     public static double PIVOT_LEFT_IN = 0;
@@ -25,9 +26,11 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     private final Gamepad previous = new Gamepad();
     private DcMotor intake;
     private DcMotorEx flywheel;
-    private ShooterVelocity shooter;
+    private TuningFlywheelControl flywheelControl;
     private ShotTuningLog log;
     private int speedPercent;
+    private double fullSpeed;
+    private double previousSpeedUpdate;
     private double pivotForward;
     private double pivotLeft;
     private Trial trial;
@@ -42,7 +45,10 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flywheel = hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR);
-        shooter = new ShooterVelocity(flywheel);
+        flywheel.setPower(0);
+        flywheel.setDirection(DcMotorSimple.Direction.FORWARD);
+        flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         log = new ShotTuningLog(hardwareMap.appContext);
     }
 
@@ -53,11 +59,15 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         super.start();
         previous.copy(gamepad1);
         speedPercent = Math.max(1, Math.min(100, START_SPEED_PERCENT));
+        fullSpeed = FULL_SPEED_TICKS_PER_SECOND;
+        if (!Double.isFinite(fullSpeed) || fullSpeed <= 0) fullSpeed = 2300;
+        flywheelControl = new TuningFlywheelControl(fullSpeed);
+        previousSpeedUpdate = getRuntime();
         trial = null;
         savedTrials = 0;
         status = "Drive to a test spot and let the flywheel settle.";
         intake.setPower(FixedTurretIntakeShooterTeleOp.INTAKE_POWER);
-        shooter.setEnabled(true, speedPercent / 100.0);
+        flywheel.setPower(-speedPercent / 100.0);
     }
 
     @Override
@@ -77,9 +87,13 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
                     - (gamepad1.dpad_left && !previous.dpad_left ? 1 : 0);
             speedPercent = Math.max(1, Math.min(100, speedPercent + change));
         }
-        shooter.setEnabled(true, speedPercent / 100.0);
-        double targetSpeed = Math.abs(shooter.targetTicksPerSecond());
-        double actualSpeed = -flywheel.getVelocity();
+        double now = getRuntime();
+        double targetSpeed = fullSpeed * (speedPercent / 100.0);
+        double encoderVelocity = flywheel.getVelocity();
+        double actualSpeed = Math.abs(encoderVelocity);
+        double power = flywheelControl.power(targetSpeed, encoderVelocity, now - previousSpeedUpdate);
+        previousSpeedUpdate = now;
+        flywheel.setPower(-power);
         Pose origin = aimOrigin(pose);
         double distance = Math.hypot(HIVE_X - origin.x(), HIVE_Y - origin.y());
         String readiness = recordingReadiness(targetAngle, actualAngle, distance, targetSpeed, actualSpeed);
@@ -105,7 +119,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
 
         telemetry.addData("Hive distance (in)", "%.1f", distance);
         telemetry.addData("Shooter setting", "%d%%", speedPercent);
-        shooter.addTelemetry(telemetry);
+        telemetry.addData("Shooter target / actual (ticks/s)", "%.0f / %.0f", targetSpeed, actualSpeed);
+        telemetry.addData("Shooter signed encoder / motor power", "%.0f / %.2f", encoderVelocity, -power);
         telemetry.addData("Shot trial", status);
         telemetry.addData("Shot readings", readiness);
         telemetry.addData("Saved trials", savedTrials);
@@ -122,7 +137,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         if (!Double.isFinite(distance)) return "Pedro distance unavailable";
         if (!Double.isFinite(targetAngle) || !Double.isFinite(actualAngle)) return "Turret tracking unavailable";
         if (targetSpeed <= 0) return "Shooter target is zero";
-        if (!Double.isFinite(actualSpeed) || actualSpeed <= 0) return "No flywheel speed in commanded direction";
+        if (!Double.isFinite(actualSpeed) || actualSpeed <= 0) return "No flywheel encoder speed";
         return "Pose, turret, and shooter readings available";
     }
 
@@ -153,7 +168,7 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
     @Override
     public void stop() {
         if (intake != null) intake.setPower(0);
-        if (shooter != null) shooter.stop();
+        if (flywheel != null) flywheel.setPower(0);
         super.stop();
     }
 
