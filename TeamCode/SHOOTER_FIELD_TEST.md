@@ -8,7 +8,7 @@ from the Pedro tracking point, set `PIVOT_FORWARD_IN` and `PIVOT_LEFT_IN` in
 Panels before START. Both default to zero. Keep the hood at a fixed physical
 setting and update `HOOD_SETTING` in Panels when you change that setting.
 
-After START the intake and shooter run continuously. Use the left stick to move
+After START the shooter runs continuously. Use the left stick to move
 and the right stick to turn. Drive to the first test spot near **(83.9, 108.6)**,
 center the sticks, and wait for the turret and flywheel readings to settle.
 
@@ -17,8 +17,9 @@ center the sticks, and wait for the turret and flywheel readings to settle.
   is 65% of `FULL_SPEED_TICKS_PER_SECOND`, which starts at 2300 based on the
   logged flywheel readings. The tuning OpMode controls velocity using the
   encoder speed magnitude. Compare the target and actual ticks/s on telemetry.
-- Load four pollen. Hold **RB** to open the blocker and record the burst.
-  Release RB after the fourth shot to close the blocker.
+- Load four pollen. Hold **RB** to open the blocker, run the intake and transfer,
+  and record the burst. Release RB after the fourth shot to stop the intake
+  and close the blocker.
 - After releasing RB, mark all four shots in firing order with **A** for hit, **B** for miss,
   **D-pad up** for high, or **D-pad down** for low. High and low count as misses.
   For example, **Up, Up, Down, A** saves `high high low hit`. Press **X** to
