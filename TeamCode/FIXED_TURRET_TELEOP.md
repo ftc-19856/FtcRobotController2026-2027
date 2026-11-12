@@ -26,7 +26,7 @@ command. Turret reference capture and holding begin only after START.
   `RUN_TO_POSITION`, BRAKE and a maximum holding power of **0.2**. No encoder
   reset or turret home movement is performed; its encoder must be connected.
 - **Hold A:** move positional servo `blocker` to the **0.0 ready-to-shoot position**.
-  Release A to return it to **0.155 blocking**. B has no function. This is a plain
+  Release A to return it to **0.170 blocking**. B has no function. This is a plain
   `if (gamepad1.a) ... else ...` in `loop()`, with no blocker toggle or helper.
 - No servo command is sent during INIT or at START. The first active loop
   applies the current button state; without A held, it commands closed. No

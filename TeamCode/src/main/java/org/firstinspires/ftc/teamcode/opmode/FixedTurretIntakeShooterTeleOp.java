@@ -21,7 +21,7 @@ import org.firstinspires.ftc.teamcode.util.ShooterVelocity;
 public final class FixedTurretIntakeShooterTeleOp extends OpMode {
     public static final double INTAKE_POWER = -1.0;
     public static final double TURRET_HOLD_POWER = 0.2;
-    public static final double BLOCKER_BLOCKED_POSITION = 0.155;
+    public static final double BLOCKER_BLOCKED_POSITION = 0.170;
     public static final double BLOCKER_CLEAR_POSITION = 0.0;
 
     private DcMotor intake;
