@@ -27,6 +27,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     private DcMotorEx flywheel;
     private Servo blocker;
     private Toggle intakeToggle;
+    private Toggle turretAimToggle;
     private Toggle secondHive;
     private TuningFlywheelControl flywheelControl;
     private double previousSpeedUpdate;
@@ -88,6 +89,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     public void start() {
         super.start();
         intakeToggle = new Toggle(false, gamepad1.x);
+        turretAimToggle = new Toggle(false, gamepad1.y);
         secondHive = new Toggle(false, gamepad1.b);
         flywheelControl = new TuningFlywheelControl(FULL_SPEED_TICKS_PER_SECOND);
         previousSpeedUpdate = getRuntime();
@@ -100,8 +102,12 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     @Override
     public void loop() {
         secondHive.update(gamepad1.b);
+        turretAimToggle.update(gamepad1.y);
         super.loop();
     }
+
+    @Override
+    protected boolean turretAimEnabled() { return turretAimToggle != null && turretAimToggle.get(); }
 
     @Override
     protected final double hiveX() { return targetX; }
@@ -114,7 +120,12 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     @Override
     protected void afterAimUpdate(Pose pose, double targetAngle, double actualAngle) {
         intakeToggle.update(gamepad1.x);
-        intake.setPower(intakeToggle.get() ? FixedTurretIntakeShooterTeleOp.INTAKE_POWER : 0);
+        double intakePower = FixedTurretIntakeShooterTeleOp.INTAKE_POWER;
+        if (gamepad1.left_bumper) {
+            intake.setPower(-intakePower);
+        } else {
+            intake.setPower(intakeToggle.get() ? intakePower : 0);
+        }
         setBlocker(gamepad1.a);
 
         int speedChangePercent = (gamepad1.dpad_up && !previousSpeedButtons.dpad_up ? 5 : 0)
@@ -140,8 +151,9 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
                 ? String.format(java.util.Locale.US, "%.1f", distance) : "Unavailable");
         telemetry.addData("Shooter target / actual (ticks/s)", "%.0f / %.0f", targetSpeed, Math.abs(encoderSpeed));
         telemetry.addData("Shooter base / trim (ticks/s)", "%.0f / %+.0f", baseSpeed, speedTrim);
-        telemetry.addData("Intake", intakeToggle.get() ? "On" : "Off");
-        telemetry.addLine("X intake | Hold A blocker open | B switch hive");
+        telemetry.addData("Intake", gamepad1.left_bumper ? "Reverse" : (intakeToggle.get() ? "On" : "Off"));
+        telemetry.addLine("X intake | Hold LB reverse | Hold A blocker open");
+        telemetry.addLine("Y toggle turret aim | B switch hive");
         telemetry.addLine("D-pad up/down: shooter trim +/-5 points. Left/right: +/-1 point.");
     }
 

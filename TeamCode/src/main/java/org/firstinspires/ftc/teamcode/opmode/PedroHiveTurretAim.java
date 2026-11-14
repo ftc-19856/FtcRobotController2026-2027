@@ -110,7 +110,10 @@ public class PedroHiveTurretAim extends OpMode {
         localizer.update();
         Pose pose = localizer.pose();
         String status;
-        if (!poseInitialized) {
+        if (!turretAimEnabled()) {
+            atTravelLimit = false;
+            status = "Turret aim off";
+        } else if (!poseInitialized) {
             status = poseStartStatus;
         } else if (pinpoint.getDeviceStatus() != GoBildaPinpointDriver.DeviceStatus.READY) {
             status = "Waiting for Pinpoint";
@@ -148,6 +151,8 @@ public class PedroHiveTurretAim extends OpMode {
     }
 
     protected void afterAimUpdate(Pose pose, double targetAngle, double actualAngle) { }
+
+    protected boolean turretAimEnabled() { return true; }
 
     protected PinpointConfig pinpointConfig() { return Constants.localizerConfig; }
 
