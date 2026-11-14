@@ -13,7 +13,7 @@ public abstract class ShootLeaveParkAuto extends PedroPollenShootAndPark {
     protected abstract double hiveY();
 
     @Override
-    protected final double tunedShooterSpeedTicksPerSecond() {
+    protected double tunedShooterSpeedTicksPerSecond() {
         Pose shoot = shootingTargetPose();
         return TuningFlywheelControl.speedForDistance(Math.hypot(83 - shoot.x(), hiveY() - shoot.y()));
     }

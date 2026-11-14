@@ -19,15 +19,17 @@ the shot.
 The fixed turret must be aimed at the hive at the shooting pose. Red starts at
 (8.8061, 32.1239, 90 Pedro degrees) and shoots at (53.7261, 32.1083, 90 Pedro degrees).
 Blue starts at (132, 109, 270 Pedro
-degrees), then drives to (87, 108, 270 Pedro degrees) to shoot the preloads.
+degrees), then drives to (87, 120, 270 Pedro degrees) to shoot the preloads
+at 59% (1,357 ticks/s).
 Both alliance autos wait for the drive and heading to settle before shooting.
 Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
 it does not actively hold, aim, or rotate the turret, including while shooting.
 Position the turret manually before running. Red and TeleOp retain their existing
 encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
 Red parks at (9.5244, 117.7155, 90 Pedro degrees). Parking uses a curve from the
-current pose with the alliance control point.
-Blue uses (139, 97), and red uses (6.455, 49.9691).
+current pose with the alliance control points. Blue uses (139.9625, 93.5962)
+and (125.9327, 70.9454) to reach (128.6823, 43.9144, -84.1919 Pedro degrees).
+Red uses (6.455, 49.9691).
 Blue inserts clearance waypoints around the hive as described below.
 These are Bezier control points, not waypoints the robot necessarily passes
 through. Verify field clearance and that the return fits five seconds.
@@ -145,9 +147,7 @@ The reported obstruction is modeled as X=94.5..95.5, Y=50..90 inches. Blue's
 parking planner reserves the robot's half-diagonal plus two inches around it.
 It uses the supplied parking curve if that entire curve clears this buffer.
 Otherwise, it takes Pedro line segments around the nearer clear end, followed
-by a curve using the (139, 97) control point to the original
-park endpoint. From the shooting pose, this goes above the structure and across
-to about (110.23, 104.73) before the final curve.
+by a cubic curve using both control points to the park endpoint.
 
 If collection ends inside the conservative turning buffer but the current robot
 footprint is still clear of the structure, the first leg moves directly away

@@ -26,30 +26,33 @@ public final class AlliancePathAutoTest {
         assertConstantHeading(route.path2(), 90);
     }
 
-    @Test public void bluePhysicallyStartsAt270AndKeepsThatHeadingOnBothPaths() {
+    @Test public void blueUsesTheCubicParkingCurveAndExportedHeading() {
         AllianceAutonomousPaths route = new BlueAlliancePaths();
         assertPose(route.start, 132, 109, 270);
         assertPose(route.path1().get(0), 132, 109, 270);
-        assertPose(route.path1().get(1), 87, 108, 270);
-        assertPose(route.path2().get(0), 87, 108, 270);
-        assertPose(route.path2().get(0.5), 124.285, 81.77, 270);
-        assertPose(route.path2().get(1), 132.14, 25.08, 270);
+        assertPose(route.path1().get(1), 87, 120, 270);
+        assertPose(route.path2().get(0), 87, 120, 270);
+        assertEquals(126.6709875, route.path2().get(0.5).x(), 1e-6);
+        assertEquals(82.1924, route.path2().get(0.5).y(), 1e-6);
+        assertPose(route.path2().get(1), 128.6823, 43.9144, -84.1919);
         assertConstantHeading(route.path1(), 270);
-        assertConstantHeading(route.path2(), 270);
+        Path dynamic = route.pathToPark(route.shooting);
+        assertPose(dynamic.get(0.5), 126.6709875, 82.1924,
+                Math.toDegrees(route.path2().get(0.5).heading()));
     }
 
-    @Test public void parkingFromACollectedPoseRetainsBlueControlPoint() {
+    @Test public void parkingFromAnOffsetPoseRetainsBothBlueControlPoints() {
         AllianceAutonomousPaths route = new BlueAlliancePaths();
         Path path = route.pathToPark(new Pose(120, 100, Math.toRadians(180)));
         assertPose(path.get(0), 120, 100, 180);
-        // Quadratic midpoint = start/4 + control/2 + end/4.
+        // Cubic midpoint weights the four points 1:3:3:1.
         Pose middle = path.get(0.5);
-        assertEquals(132.535, middle.x(), 1e-6);
-        assertEquals(79.77, middle.y(), 1e-6);
+        assertEquals(130.7959875, middle.x(), 1e-6);
+        assertEquals(79.6924, middle.y(), 1e-6);
         // Pedro interpolates heading over distance, not the Bezier parameter.
         assertTrue(middle.heading() > Math.toRadians(180));
-        assertTrue(middle.heading() < Math.toRadians(270));
-        assertPose(path.get(1), 132.14, 25.08, 270);
+        assertTrue(middle.heading() < Math.toRadians(275.8081));
+        assertPose(path.get(1), 128.6823, 43.9144, -84.1919);
     }
 
     @Test public void redParkingFromShootingPoseMatchesOriginalSuppliedCurve() {

@@ -18,6 +18,11 @@ public final class BlueShootLeavePark extends ShootLeaveParkAuto {
     protected double hiveY() { return 83; }
 
     @Override
+    protected double tunedShooterSpeedTicksPerSecond() {
+        return 0.59 * TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND;
+    }
+
+    @Override
     protected AllianceAutonomousPaths createPaths() {
         return new BlueAlliancePaths();
     }

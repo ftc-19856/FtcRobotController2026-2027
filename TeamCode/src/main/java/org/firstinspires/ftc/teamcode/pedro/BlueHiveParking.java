@@ -22,24 +22,25 @@ public final class BlueHiveParking {
 
     private BlueHiveParking() { }
 
-    public static Path route(Pose current, Pose park, Pose control) {
+    public static Path route(Pose current, Pose park, Pose firstControl, Pose secondControl) {
         if (!outside(current)) {
             // Leave the turning buffer without rotating, if the current footprint
             // has at least an inch of physical clearance from the wall.
             Pose escape = escapePose(current);
             if (escape == null) return null;
-            Path remainder = route(escape, park, control);
+            Path remainder = route(escape, park, firstControl, secondControl);
             return remainder == null ? null : path(
                     line(current, escape).constant(current.heading()), remainder);
         }
         if (!outside(park)) return null;
-        if (clearCurve(current, control, park, 0)) {
-            return curve(current, control, park).linear(current, park);
+        if (clearCurve(current, firstControl, secondControl, park, 0)) {
+            return curve(current, firstControl, secondControl, park).linear(current, park);
         }
-        // The park and supplied control point are east of the structure.
+        // The park and supplied control points are east of the structure.
         List<Pose> top = around(current, TOP);
         List<Pose> bottom = around(current, BOTTOM);
-        double topCost = cost(top, park, control), bottomCost = cost(bottom, park, control);
+        double topCost = cost(top, park, firstControl, secondControl);
+        double bottomCost = cost(bottom, park, firstControl, secondControl);
         if (!Double.isFinite(Math.min(topCost, bottomCost))) return null;
         List<Pose> chosen = topCost <= bottomCost ? top : bottom;
         List<Path> legs = new ArrayList<>();
@@ -48,7 +49,7 @@ public final class BlueHiveParking {
                 legs.add(line(chosen.get(i - 1), chosen.get(i)));
             }
         }
-        legs.add(curve(chosen.get(chosen.size() - 1), control, park));
+        legs.add(curve(chosen.get(chosen.size() - 1), firstControl, secondControl, park));
         return path(legs.toArray(new Path[0])).linear(current, park);
     }
 
@@ -65,13 +66,13 @@ public final class BlueHiveParking {
         return points;
     }
 
-    private static double cost(List<Pose> points, Pose park, Pose control) {
+    private static double cost(List<Pose> points, Pose park, Pose firstControl, Pose secondControl) {
         if (points == null) return Double.POSITIVE_INFINITY;
         Pose last = points.get(points.size() - 1);
-        if (!clearCurve(last, control, park, 0)) return Double.POSITIVE_INFINITY;
+        if (!clearCurve(last, firstControl, secondControl, park, 0)) return Double.POSITIVE_INFINITY;
         double length = 0;
         for (int i = 1; i < points.size(); i++) length += distance(points.get(i - 1), points.get(i));
-        Path tail = curve(last, control, park).constant(park);
+        Path tail = curve(last, firstControl, secondControl, park).constant(park);
         Pose previous = last;
         for (int i = 1; i <= 40; i++) {
             Pose next = tail.get(i / 40.0);
@@ -114,16 +115,19 @@ public final class BlueHiveParking {
         return exit <= enter;
     }
 
-    private static boolean clearCurve(Pose a, Pose control, Pose b, int depth) {
+    private static boolean clearCurve(Pose a, Pose c1, Pose c2, Pose b, int depth) {
         // A Bezier lies inside its control hull. Recursively split intersecting
         // hulls; an unresolved intersection is rejected conservatively.
-        if (Math.max(a.x(), Math.max(control.x(), b.x())) <= LEFT + EPS
-                || Math.min(a.x(), Math.min(control.x(), b.x())) >= RIGHT - EPS
-                || Math.max(a.y(), Math.max(control.y(), b.y())) <= BOTTOM + EPS
-                || Math.min(a.y(), Math.min(control.y(), b.y())) >= TOP - EPS) return true;
+        if (Math.max(Math.max(a.x(), c1.x()), Math.max(c2.x(), b.x())) <= LEFT + EPS
+                || Math.min(Math.min(a.x(), c1.x()), Math.min(c2.x(), b.x())) >= RIGHT - EPS
+                || Math.max(Math.max(a.y(), c1.y()), Math.max(c2.y(), b.y())) <= BOTTOM + EPS
+                || Math.min(Math.min(a.y(), c1.y()), Math.min(c2.y(), b.y())) >= TOP - EPS) return true;
         if (!outside(a) || !outside(b) || depth >= 12) return false;
-        Pose ac = midpoint(a, control), cb = midpoint(control, b), middle = midpoint(ac, cb);
-        return clearCurve(a, ac, middle, depth + 1) && clearCurve(middle, cb, b, depth + 1);
+        Pose left = midpoint(a, c1), center = midpoint(c1, c2), right = midpoint(c2, b);
+        Pose leftInner = midpoint(left, center), rightInner = midpoint(center, right);
+        Pose middle = midpoint(leftInner, rightInner);
+        return clearCurve(a, left, leftInner, middle, depth + 1)
+                && clearCurve(middle, rightInner, right, b, depth + 1);
     }
 
     private static Pose midpoint(Pose a, Pose b) {
