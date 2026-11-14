@@ -19,10 +19,11 @@ final class TuningFlywheelControl {
             previousTarget = 0;
             return 0;
         }
-        if (target != previousTarget) {
+        // Retain accumulated correction as a moving robot makes small target changes.
+        if (Math.abs(target - previousTarget) > fullSpeed * 0.01) {
             integral = 0;
-            previousTarget = target;
         }
+        previousTarget = target;
         double error = (target - Math.abs(actual)) / fullSpeed;
         double base = target / fullSpeed + PROPORTIONAL_GAIN * error;
         double nextIntegral = integral + INTEGRAL_GAIN * error * Math.max(0, Math.min(0.1, seconds));

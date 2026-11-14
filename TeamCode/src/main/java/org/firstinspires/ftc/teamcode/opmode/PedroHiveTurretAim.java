@@ -163,6 +163,10 @@ public class PedroHiveTurretAim extends OpMode {
 
     protected Pose aimOrigin(Pose pose) { return pose; }
 
+    protected boolean hasFieldPose() {
+        return poseInitialized && pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
+    }
+
     protected double hiveX() { return HIVE_X; }
 
     protected double hiveY() { return HIVE_Y; }

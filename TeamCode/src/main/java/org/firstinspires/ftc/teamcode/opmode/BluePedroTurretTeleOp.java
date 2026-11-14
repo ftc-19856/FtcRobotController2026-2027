@@ -20,19 +20,17 @@ import org.firstinspires.ftc.teamcode.util.Toggle;
 public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     private static final double SECOND_HIVE_Y = 55;
     private static final double FULL_SPEED_TICKS_PER_SECOND = 2300;
-    // Use this target until field testing supplies a distance-based speed table.
-    public static double SHOOTER_TARGET_TICKS_PER_SECOND = 1495;
+    private static final double FALLBACK_SPEED = 1495;
 
     private final Gamepad previousSpeedButtons = new Gamepad();
     private DcMotor intake;
     private DcMotorEx flywheel;
     private Servo blocker;
     private Toggle intakeToggle;
-    private Toggle shooterToggle;
     private Toggle secondHive;
     private TuningFlywheelControl flywheelControl;
     private double previousSpeedUpdate;
-    private double selectedSpeed;
+    private double speedTrim;
     private boolean useBlueStart;
     private boolean started;
 
@@ -78,12 +76,10 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     public void start() {
         super.start();
         intakeToggle = new Toggle(false, gamepad1.x);
-        shooterToggle = new Toggle(false, gamepad1.y);
         secondHive = new Toggle(false, gamepad1.b);
         flywheelControl = new TuningFlywheelControl(FULL_SPEED_TICKS_PER_SECOND);
         previousSpeedUpdate = getRuntime();
-        double startingSpeed = SHOOTER_TARGET_TICKS_PER_SECOND;
-        selectedSpeed = Double.isFinite(startingSpeed) ? clampSpeed(startingSpeed) : 1495;
+        speedTrim = 0;
         previousSpeedButtons.copy(gamepad1);
         setBlocker(false);
         started = true;
@@ -101,7 +97,6 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     @Override
     protected void afterAimUpdate(Pose pose, double targetAngle, double actualAngle) {
         intakeToggle.update(gamepad1.x);
-        shooterToggle.update(gamepad1.y);
         intake.setPower(intakeToggle.get() ? FixedTurretIntakeShooterTeleOp.INTAKE_POWER : 0);
         setBlocker(gamepad1.a);
 
@@ -109,25 +104,36 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
                 - (gamepad1.dpad_down && !previousSpeedButtons.dpad_down ? 5 : 0)
                 + (gamepad1.dpad_right && !previousSpeedButtons.dpad_right ? 1 : 0)
                 - (gamepad1.dpad_left && !previousSpeedButtons.dpad_left ? 1 : 0);
-        selectedSpeed = clampSpeed(selectedSpeed + FULL_SPEED_TICKS_PER_SECOND * speedChangePercent / 100.0);
         previousSpeedButtons.copy(gamepad1);
-        double targetSpeed = shooterToggle.get() ? selectedSpeed : 0;
+        Pose origin = aimOrigin(pose);
+        double distance = hasFieldPose() ? Math.hypot(hiveX() - origin.x(), hiveY() - origin.y()) : Double.NaN;
+        double baseSpeed = speedForDistance(distance);
+        // Limit trim to ±20 percentage points so the running shooter keeps a positive target.
+        double maxTrim = 0.20 * FULL_SPEED_TICKS_PER_SECOND;
+        speedTrim = Math.max(-maxTrim, Math.min(maxTrim,
+                speedTrim + FULL_SPEED_TICKS_PER_SECOND * speedChangePercent / 100.0));
+        double targetSpeed = baseSpeed + speedTrim;
         double encoderSpeed = flywheel.getVelocity();
         double now = getRuntime();
         flywheel.setPower(-flywheelControl.power(targetSpeed, encoderSpeed, now - previousSpeedUpdate));
         previousSpeedUpdate = now;
 
         telemetry.addData("Hive X / Y", "%.0f / %.0f", hiveX(), hiveY());
-        telemetry.addData("Hive distance (in)", "%.1f", Math.hypot(hiveX() - pose.x(), hiveY() - pose.y()));
+        telemetry.addData("Hive distance (in)", Double.isFinite(distance)
+                ? String.format(java.util.Locale.US, "%.1f", distance) : "Unavailable");
         telemetry.addData("Shooter target / actual (ticks/s)", "%.0f / %.0f", targetSpeed, Math.abs(encoderSpeed));
-        telemetry.addData("Selected shooter speed (ticks/s)", "%.0f", selectedSpeed);
+        telemetry.addData("Shooter base / trim (ticks/s)", "%.0f / %+.0f", baseSpeed, speedTrim);
         telemetry.addData("Intake", intakeToggle.get() ? "On" : "Off");
-        telemetry.addLine("X intake | Y shooter | Hold A blocker open | B switch hive");
-        telemetry.addLine("D-pad up/down: shooter speed +/-5%. Left/right: +/-1%.");
+        telemetry.addLine("X intake | Hold A blocker open | B switch hive");
+        telemetry.addLine("D-pad up/down: shooter trim +/-5 points. Left/right: +/-1 point.");
     }
 
-    private static double clampSpeed(double speed) {
-        return Math.max(0, Math.min(FULL_SPEED_TICKS_PER_SECOND, speed));
+    static double speedForDistance(double distance) {
+        if (!Double.isFinite(distance)) return FALLBACK_SPEED;
+        double inches = Math.max(35, Math.min(50, distance));
+        // Shallower-shooter field trials: 61% at 35 in, 63% at 41 in, 68% at 50 in.
+        if (inches <= 41) return 1403 + (1449 - 1403) * (inches - 35) / 6;
+        return 1449 + (1564 - 1449) * (inches - 41) / 9;
     }
 
     private void setBlocker(boolean open) {
