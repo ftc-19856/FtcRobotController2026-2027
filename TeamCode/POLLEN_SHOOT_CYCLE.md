@@ -13,17 +13,18 @@ Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
    blocker, stop the mechanisms, and drive to the alliance park coordinates.
    At **30 seconds**, stop driving. A partial batch stays aboard when parking.
 
-The fixed turret must be aimed at the hive at the shooting pose. Red starts and
-shoots at (9.7, 32.8, 90 Pedro degrees). Blue starts at (132, 109, 270 Pedro
+The fixed turret must be aimed at the hive at the shooting pose. Red starts at
+(8.8061, 32.1239, 90 Pedro degrees) and shoots at (53.7261, 32.1083, 90 Pedro degrees).
+Blue starts at (132, 109, 270 Pedro
 degrees), then drives to (87, 108, 270 Pedro degrees) to shoot both preloads
 and subsequent batches. It waits for the drive and heading to settle before shooting.
 Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
 it does not actively hold, aim, or rotate the turret, including while shooting.
 Position the turret manually before running. Red and TeleOp retain their existing
 encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
-The established park endpoints are unchanged. Since seeking can end anywhere,
-parking uses a curve from the current pose through the original alliance
-control point. Blue uses (139, 97), and red uses (15.2254, 37.9912).
+Red parks at (9.5244, 117.7155, 90 Pedro degrees). Since seeking can end anywhere,
+parking uses a curve from the current pose with the alliance control point.
+Blue uses (139, 97), and red uses (6.455, 49.9691).
 Blue inserts clearance waypoints around the hive as described below.
 These are Bezier control points, not waypoints the robot necessarily passes
 through. Verify field clearance and that the return fits five seconds.

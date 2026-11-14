@@ -16,12 +16,13 @@ public final class AlliancePathAutoTest {
 
     @Test public void redUsesTheSuppliedLineAndCurveWithPedroDegreeHeadings() {
         AllianceAutonomousPaths route = new RedAlliancePaths();
-        assertPose(route.start, 9.7, 32.8, 90);
-        assertPose(route.path1().get(0), 9.7, 32.8, 90);
-        assertPose(route.path1().get(1), 57.8, 27.3, 90);
-        assertPose(route.path2().get(0), 57.8, 27.3, 90);
-        assertPose(route.path2().get(0.5), 24.4877, 54.5706, 90);
-        assertPose(route.path2().get(1), 9.7, 115, 90);
+        assertPose(route.start, 8.8061, 32.1239, 90);
+        assertPose(route.path1().get(0), 8.8061, 32.1239, 90);
+        assertPose(route.path1().get(1), 53.7261, 32.1083, 90);
+        assertPose(route.path2().get(0), 53.7261, 32.1083, 90);
+        assertPose(route.path2().get(0.5), 19.040125, 62.4405, 90);
+        assertPose(route.path2().get(1), 9.5244, 117.7155, 90);
+        assertPose(new RedShootLeavePark().shootingTargetPose(), 53.7261, 32.1083, 90);
         assertConstantHeading(route.path2(), 90);
     }
 

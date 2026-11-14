@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.pedropathing.math.Pose;
 import org.firstinspires.ftc.teamcode.pedro.AllianceAutonomousPaths;
 import org.firstinspires.ftc.teamcode.pedro.BlueAlliancePaths;
 
@@ -17,11 +16,6 @@ public final class BlueShootLeavePark extends ShootLeaveParkAuto {
 
     @Override
     protected double tunedShooterSpeedFraction() { return 0.64; }
-
-    @Override
-    protected Pose shootingTargetPose() {
-        return createPaths().shooting;
-    }
 
     @Override
     protected AllianceAutonomousPaths createPaths() {

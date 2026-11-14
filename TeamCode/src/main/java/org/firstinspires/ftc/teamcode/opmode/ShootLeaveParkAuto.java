@@ -19,6 +19,9 @@ public abstract class ShootLeaveParkAuto extends PedroPollenShootAndPark {
     protected final Pose startingPose() { return route().start; }
 
     @Override
+    protected final Pose shootingTargetPose() { return route().shooting; }
+
+    @Override
     protected final Pose parkingPose() { return route().park; }
 
     @Override

@@ -9,7 +9,7 @@ lives in the abstract `AlliancePathAuto` and `AllianceAutonomousPaths` bases.
 
 | Alliance | Initial pose | Shooting pose | Park pose |
 | --- | --- | --- | --- |
-| Red | (9.7, 32.8, 90 degrees) | (57.8, 27.3, 90 degrees) | (9.7, 115, 90 degrees) |
+| Red | (8.8061, 32.1239, 90 degrees) | (53.7261, 32.1083, 90 degrees) | (9.5244, 117.7155, 90 degrees) |
 | Blue | (132, 109, 270 degrees) | (87, 108, 270 degrees) | (135.409, 23.3501, 270 degrees) |
 
 Coordinates are absolute Pedro field inches. Angles above are **Pedro degrees**,
@@ -19,7 +19,7 @@ and keeps that heading; no initial 180-degree turn or heading teleport is used.
 
 Ivy runs path 1 (straight line), waits for Pedro's endpoint completion, pauses
 for **3000 ms**, then follows path 2 (the parking curve). Red's curve control
-point is (15.2254, 37.9912), and blue's is (139, 97). The control points'
+point is (6.455, 49.9691), and blue's is (139, 97). The control points'
 exported zero headings do not change the constant heading on the parking paths.
 Pedro remains active during the pause to hold the shooting position.
 
