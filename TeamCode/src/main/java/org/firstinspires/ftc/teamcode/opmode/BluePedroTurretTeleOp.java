@@ -19,8 +19,7 @@ import org.firstinspires.ftc.teamcode.util.Toggle;
 @TeleOp(name = "Blue Pedro Turret TeleOp", group = "Competition")
 public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
     private static final double SECOND_HIVE_Y = 55;
-    private static final double FULL_SPEED_TICKS_PER_SECOND = 2300;
-    private static final double FALLBACK_SPEED = 1495;
+    private static final double FULL_SPEED_TICKS_PER_SECOND = TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND;
 
     private final Gamepad previousSpeedButtons = new Gamepad();
     private DcMotor intake;
@@ -107,7 +106,7 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
         previousSpeedButtons.copy(gamepad1);
         Pose origin = aimOrigin(pose);
         double distance = hasFieldPose() ? Math.hypot(hiveX() - origin.x(), hiveY() - origin.y()) : Double.NaN;
-        double baseSpeed = speedForDistance(distance);
+        double baseSpeed = TuningFlywheelControl.speedForDistance(distance);
         // Limit trim to ±20 percentage points so the running shooter keeps a positive target.
         double maxTrim = 0.20 * FULL_SPEED_TICKS_PER_SECOND;
         speedTrim = Math.max(-maxTrim, Math.min(maxTrim,
@@ -126,14 +125,6 @@ public final class BluePedroTurretTeleOp extends PedroHiveTurretAim {
         telemetry.addData("Intake", intakeToggle.get() ? "On" : "Off");
         telemetry.addLine("X intake | Hold A blocker open | B switch hive");
         telemetry.addLine("D-pad up/down: shooter trim +/-5 points. Left/right: +/-1 point.");
-    }
-
-    static double speedForDistance(double distance) {
-        if (!Double.isFinite(distance)) return FALLBACK_SPEED;
-        double inches = Math.max(35, Math.min(50, distance));
-        // Shallower-shooter field trials: 61% at 35 in, 63% at 41 in, 68% at 50 in.
-        if (inches <= 41) return 1403 + (1449 - 1403) * (inches - 35) / 6;
-        return 1449 + (1564 - 1449) * (inches - 41) / 9;
     }
 
     private void setBlocker(boolean open) {

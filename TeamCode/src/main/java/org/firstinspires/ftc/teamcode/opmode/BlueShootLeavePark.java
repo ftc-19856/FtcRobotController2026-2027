@@ -15,7 +15,7 @@ public final class BlueShootLeavePark extends ShootLeaveParkAuto {
     protected boolean holdTurretDuringAuto() { return false; }
 
     @Override
-    protected double tunedShooterSpeedFraction() { return 0.64; }
+    protected double hiveY() { return 83; }
 
     @Override
     protected AllianceAutonomousPaths createPaths() {

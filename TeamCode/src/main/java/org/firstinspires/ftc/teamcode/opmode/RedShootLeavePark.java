@@ -7,6 +7,9 @@ import org.firstinspires.ftc.teamcode.pedro.RedAlliancePaths;
 @Autonomous(name = "Red Shoot Leave Park", group = "Competition")
 public final class RedShootLeavePark extends ShootLeaveParkAuto {
     @Override
+    protected double hiveY() { return 55; }
+
+    @Override
     protected AllianceAutonomousPaths createPaths() {
         return new RedAlliancePaths();
     }

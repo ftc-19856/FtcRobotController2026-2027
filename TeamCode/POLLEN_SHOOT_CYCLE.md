@@ -1,8 +1,11 @@
-# Shoot, seek four, shoot again, park
+# Pollen shooting autonomous modes
 
-Use **Red Shoot Leave Park** or **Blue Shoot Leave Park**. These modes now share
-the working Pedro pollen seeker with **Pedro Pollen Shoot And Park**. The plain
-Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
+**Red Shoot Leave Park** and **Blue Shoot Leave Park** drive to their shooting
+pose, feed the preloads, and park immediately after shooting. They don't need
+the Limelight or transfer color sensor. The intake powers the transfer during
+the shot.
+
+**Pedro Pollen Shoot And Park** uses the collection cycle below.
 
 1. Drive to the shooting pose, then shoot the four preloads.
 2. Seek pollen with the blocker closed and intake/transfer running.
@@ -16,26 +19,23 @@ Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
 The fixed turret must be aimed at the hive at the shooting pose. Red starts at
 (8.8061, 32.1239, 90 Pedro degrees) and shoots at (53.7261, 32.1083, 90 Pedro degrees).
 Blue starts at (132, 109, 270 Pedro
-degrees), then drives to (87, 108, 270 Pedro degrees) to shoot both preloads
-and subsequent batches. It waits for the drive and heading to settle before shooting.
+degrees), then drives to (87, 108, 270 Pedro degrees) to shoot the preloads.
+Both alliance autos wait for the drive and heading to settle before shooting.
 Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
 it does not actively hold, aim, or rotate the turret, including while shooting.
 Position the turret manually before running. Red and TeleOp retain their existing
 encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
-Red parks at (9.5244, 117.7155, 90 Pedro degrees). Since seeking can end anywhere,
-parking uses a curve from the current pose with the alliance control point.
+Red parks at (9.5244, 117.7155, 90 Pedro degrees). Parking uses a curve from the
+current pose with the alliance control point.
 Blue uses (139, 97), and red uses (6.455, 49.9691).
 Blue inserts clearance waypoints around the hive as described below.
 These are Bezier control points, not waypoints the robot necessarily passes
 through. Verify field clearance and that the return fits five seconds.
 
 **Blue side boundary:** Blue Shoot Leave Park restricts the Pedro robot-center
-coordinate to X > 70. Search and pickup centers are planned at X >= 72 to leave
-an extra two-inch buffer. The physical field walls still use the 18x18 robot's
-turning clearance. Targets across X = 70 are ignored. Return paths and parking waypoints
-stay on the blue side; the parking control point is also on that side. A reported center X <= 70 stops the run. This
+coordinate to X > 70. Parking waypoints and the control point stay on the blue
+side. A reported center X <= 70 stops the run. This
 internal boundary applies to the center; turning alone cannot trigger the stop.
-Red's collection region is unchanged.
 
 ## Transfer color sensor
 
@@ -49,7 +49,7 @@ Touching pollen without a visible gap cannot be distinguished by this sensor.
 `YELLOW_MIN_CHANNEL` (initially 20) and `YELLOW_BLUE_RATIO` (initially 1.5) in
 `PedroPollenShootAndPark` define yellow: both red and green must meet the minimum
 and each exceed blue times the ratio. These are untested starting values; check
-real readings before running the autonomous. They are shared by both alliances.
+real readings before running the collection autonomous.
 Pickup attempts no longer increase the count without a sensor passage.
 
 Shooting retains the existing timed settings: 1.5-second spin-up and 3-second

@@ -4,11 +4,22 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import org.firstinspires.ftc.teamcode.pedro.AllianceAutonomousPaths;
 
-/** Alliance starts/parks with the shared preload, seek-four, return-and-shoot cycle. */
+/** Alliance autonomous that shoots preloads and then parks. */
 public abstract class ShootLeaveParkAuto extends PedroPollenShootAndPark {
     private AllianceAutonomousPaths route;
 
     protected abstract AllianceAutonomousPaths createPaths();
+
+    protected abstract double hiveY();
+
+    @Override
+    protected final double tunedShooterSpeedTicksPerSecond() {
+        Pose shoot = shootingTargetPose();
+        return TuningFlywheelControl.speedForDistance(Math.hypot(83 - shoot.x(), hiveY() - shoot.y()));
+    }
+
+    @Override
+    protected final boolean seekPollen() { return false; }
 
     private AllianceAutonomousPaths route() {
         if (route == null) route = createPaths();

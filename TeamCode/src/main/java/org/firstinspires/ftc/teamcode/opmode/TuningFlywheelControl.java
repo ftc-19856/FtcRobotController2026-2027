@@ -1,7 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
-/** Velocity feedback for the tuning OpMode using the magnitude of the encoder reading. */
+/** Flywheel speed estimates and feedback from the measured encoder speed. */
 final class TuningFlywheelControl {
+    static final double FULL_SPEED_TICKS_PER_SECOND = 2300;
     private static final double PROPORTIONAL_GAIN = 0.7;
     private static final double INTEGRAL_GAIN = 1.2;
 
@@ -11,6 +12,14 @@ final class TuningFlywheelControl {
 
     TuningFlywheelControl(double fullSpeed) {
         this.fullSpeed = fullSpeed;
+    }
+
+    static double speedForDistance(double distance) {
+        if (!Double.isFinite(distance)) return 1495;
+        double inches = Math.max(35, Math.min(50, distance));
+        // Shallower-shooter trials: 61% at 35 in, 63% at 41 in, 68% at 50 in.
+        if (inches <= 41) return 1403 + (1449 - 1403) * (inches - 35) / 6;
+        return 1449 + (1564 - 1449) * (inches - 41) / 9;
     }
 
     double power(double target, double actual, double seconds) {

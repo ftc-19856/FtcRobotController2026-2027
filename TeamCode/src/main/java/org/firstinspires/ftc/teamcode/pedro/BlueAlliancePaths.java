@@ -12,7 +12,7 @@ public final class BlueAlliancePaths extends AllianceAutonomousPaths {
         super(POSES.of(132, 109, 270),
                 POSES.of(87, 108, 270),
                 POSES.of(139, 97, 0),
-                POSES.of(135.409, 23.3501, 270));
+                POSES.of(132.14, 25.08, 270));
     }
 
     @Override

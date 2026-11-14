@@ -19,7 +19,6 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
  * transfer, so the caller feeds by running the intake while the blocker is open.
  */
 final class AutoShooter {
-    private static final double TUNING_FULL_SPEED = 2300;
     private final ShooterVelocity shooter;
     private final DcMotorEx flywheel;
     private final TuningFlywheelControl tuningControl;
@@ -29,12 +28,12 @@ final class AutoShooter {
     private final DcMotor turret;
     private final Servo blocker;
 
-    AutoShooter(HardwareMap hardwareMap, double tunedSpeedFraction) {
+    AutoShooter(HardwareMap hardwareMap, double tunedSpeedTicksPerSecond) {
         flywheel = hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR);
-        tunedTarget = tunedSpeedFraction * TUNING_FULL_SPEED;
+        tunedTarget = tunedSpeedTicksPerSecond;
         if (tunedTarget > 0) {
             shooter = null;
-            tuningControl = new TuningFlywheelControl(TUNING_FULL_SPEED);
+            tuningControl = new TuningFlywheelControl(TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND);
             flywheel.setPower(0);
             flywheel.setDirection(DcMotorSimple.Direction.FORWARD);
             flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
