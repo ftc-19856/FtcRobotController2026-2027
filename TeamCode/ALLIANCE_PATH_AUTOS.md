@@ -10,7 +10,7 @@ lives in the abstract `AlliancePathAuto` and `AllianceAutonomousPaths` bases.
 | Alliance | Initial pose | Shooting pose | Park pose |
 | --- | --- | --- | --- |
 | Red | (9.7, 32.8, 90 degrees) | (57.8, 27.3, 90 degrees) | (9.7, 115, 90 degrees) |
-| Blue | (132, 109, 270 degrees) | (83.9, 108.6, 270 degrees) | (135.409, 23.3501, 270 degrees) |
+| Blue | (132, 109, 270 degrees) | (87, 108, 270 degrees) | (135.409, 23.3501, 270 degrees) |
 
 Coordinates are absolute Pedro field inches. Angles above are **Pedro degrees**,
 created with `PoseFactory.degrees()`; do not pass degree values directly to a

@@ -29,9 +29,9 @@ public final class AlliancePathAutoTest {
         AllianceAutonomousPaths route = new BlueAlliancePaths();
         assertPose(route.start, 132, 109, 270);
         assertPose(route.path1().get(0), 132, 109, 270);
-        assertPose(route.path1().get(1), 83.9, 108.6, 270);
-        assertPose(route.path2().get(0), 83.9, 108.6, 270);
-        assertPose(route.path2().get(0.5), 124.32725, 81.487525, 270);
+        assertPose(route.path1().get(1), 87, 108, 270);
+        assertPose(route.path2().get(0), 87, 108, 270);
+        assertPose(route.path2().get(0.5), 125.10225, 81.337525, 270);
         assertPose(route.path2().get(1), 135.409, 23.3501, 270);
         assertConstantHeading(route.path1(), 270);
         assertConstantHeading(route.path2(), 270);

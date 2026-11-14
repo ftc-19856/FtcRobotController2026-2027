@@ -16,6 +16,9 @@ public final class BlueShootLeavePark extends ShootLeaveParkAuto {
     protected boolean holdTurretDuringAuto() { return false; }
 
     @Override
+    protected double tunedShooterSpeedFraction() { return 0.64; }
+
+    @Override
     protected Pose shootingTargetPose() {
         return createPaths().shooting;
     }

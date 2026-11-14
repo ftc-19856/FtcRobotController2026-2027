@@ -15,7 +15,7 @@ Red/Blue Path Wait Park modes and intake-only autonomous are unchanged.
 
 The fixed turret must be aimed at the hive at the shooting pose. Red starts and
 shoots at (9.7, 32.8, 90 Pedro degrees). Blue starts at (132, 109, 270 Pedro
-degrees), then drives to (83.9, 108.6, 270 Pedro degrees) to shoot both preloads
+degrees), then drives to (87, 108, 270 Pedro degrees) to shoot both preloads
 and subsequent batches. It waits for the drive and heading to settle before shooting.
 Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
 it does not actively hold, aim, or rotate the turret, including while shooting.

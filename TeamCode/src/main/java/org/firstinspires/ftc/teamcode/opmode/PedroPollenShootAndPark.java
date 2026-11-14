@@ -155,6 +155,8 @@ public class PedroPollenShootAndPark extends OpMode {
 
     protected boolean holdTurretDuringAuto() { return true; }
 
+    protected double tunedShooterSpeedFraction() { return 0; }
+
     protected Pose startingPose() {
         return new Pose(START_X, START_Y, START_HEADING);
     }
@@ -187,7 +189,7 @@ public class PedroPollenShootAndPark extends OpMode {
         intake = hardwareMap.get(DcMotorEx.class, RobotConfig.INTAKE_MOTOR);
         intake.setPower(0);
         intake.setDirection(DcMotorSimple.Direction.REVERSE);
-        shooter = new AutoShooter(hardwareMap);
+        shooter = new AutoShooter(hardwareMap, tunedShooterSpeedFraction());
         transferColor = hardwareMap.get(ColorSensor.class, RobotConfig.TRANSFER_COLOR_SENSOR);
         transferColor.enableLed(true);
         heldPollen = STARTING_POLLEN;
