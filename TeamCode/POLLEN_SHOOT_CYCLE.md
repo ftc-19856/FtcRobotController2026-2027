@@ -23,7 +23,7 @@ Position the turret manually before running. Red and TeleOp retain their existin
 encoder hold. The blue chassis still faces the specified 270-degree shooting heading.
 The established park endpoints are unchanged. Since seeking can end anywhere,
 parking uses a curve from the current pose through the original alliance
-control point. Blue uses (131.9551, 91.8665); red uses (15.2254, 37.9912).
+control point. Blue uses (139, 97), and red uses (15.2254, 37.9912).
 Blue inserts clearance waypoints around the hive as described below.
 These are Bezier control points, not waypoints the robot necessarily passes
 through. Verify field clearance and that the return fits five seconds.
@@ -144,7 +144,7 @@ The reported obstruction is modeled as X=94.5..95.5, Y=50..90 inches. Blue's
 parking planner reserves the robot's half-diagonal plus two inches around it.
 It uses the supplied parking curve if that entire curve clears this buffer.
 Otherwise, it takes Pedro line segments around the nearer clear end, followed
-by a curve using the original (131.9551, 91.8665) control point to the original
+by a curve using the (139, 97) control point to the original
 park endpoint. From the shooting pose, this goes above the structure and across
 to about (110.23, 104.73) before the final curve.
 

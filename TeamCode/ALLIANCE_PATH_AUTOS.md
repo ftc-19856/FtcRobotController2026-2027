@@ -19,7 +19,7 @@ and keeps that heading; no initial 180-degree turn or heading teleport is used.
 
 Ivy runs path 1 (straight line), waits for Pedro's endpoint completion, pauses
 for **3000 ms**, then follows path 2 (the parking curve). Red's curve control
-point is (15.2254, 37.9912); blue's is (131.9551, 91.8665). The control points'
+point is (15.2254, 37.9912), and blue's is (139, 97). The control points'
 exported zero headings do not change the constant heading on the parking paths.
 Pedro remains active during the pause to hold the shooting position.
 

@@ -31,7 +31,7 @@ public final class AlliancePathAutoTest {
         assertPose(route.path1().get(0), 132, 109, 270);
         assertPose(route.path1().get(1), 83.9, 108.6, 270);
         assertPose(route.path2().get(0), 83.9, 108.6, 270);
-        assertPose(route.path2().get(0.5), 120.8048, 78.920775, 270);
+        assertPose(route.path2().get(0.5), 124.32725, 81.487525, 270);
         assertPose(route.path2().get(1), 135.409, 23.3501, 270);
         assertConstantHeading(route.path1(), 270);
         assertConstantHeading(route.path2(), 270);
@@ -43,8 +43,8 @@ public final class AlliancePathAutoTest {
         assertPose(path.get(0), 120, 100, 180);
         // Quadratic midpoint = start/4 + control/2 + end/4.
         Pose middle = path.get(0.5);
-        assertEquals(129.8298, middle.x(), 1e-6);
-        assertEquals(76.770775, middle.y(), 1e-6);
+        assertEquals(133.35225, middle.x(), 1e-6);
+        assertEquals(79.337525, middle.y(), 1e-6);
         // Pedro interpolates heading over distance, not the Bezier parameter.
         assertTrue(middle.heading() > Math.toRadians(180));
         assertTrue(middle.heading() < Math.toRadians(270));
