@@ -157,6 +157,10 @@ public class PedroPollenShootAndPark extends OpMode {
 
     protected boolean seekPollen() { return true; }
 
+    protected double shooterTrimTicksPerSecond() { return 0; }
+
+    protected final double baseShooterTarget() { return shooter.baseTarget(); }
+
     protected double tunedShooterSpeedTicksPerSecond() { return 0; }
 
     protected Pose startingPose() {
@@ -204,7 +208,7 @@ public class PedroPollenShootAndPark extends OpMode {
             cameraPreview = LimelightCameraPreview.start(limelight);
         }
         telemetry.addData("Auto revision", AUTO_REVISION);
-        telemetry.addLine("Set actual starting load with D-pad UP/DOWN before START.");
+        showPreloadControls();
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose", startingPose());
         telemetry.addData("Robot size (in)", "%.0f x %.0f",
@@ -216,18 +220,20 @@ public class PedroPollenShootAndPark extends OpMode {
 
     @Override
     public void init_loop() {
+        boolean loadUp = seekPollen() ? gamepad1.dpad_up : gamepad1.right_bumper;
+        boolean loadDown = seekPollen() ? gamepad1.dpad_down : gamepad1.left_bumper;
         // Rising-edge controls prevent holding a button from changing the count repeatedly.
-        if (gamepad1.dpad_up && !previousLoadUp && !gamepad1.dpad_down) {
+        if (loadUp && !previousLoadUp && !loadDown) {
             heldPollen = Math.min(POLLEN_CAPACITY, heldPollen + 1);
         }
-        if (gamepad1.dpad_down && !previousLoadDown && !gamepad1.dpad_up) {
+        if (loadDown && !previousLoadDown && !loadUp) {
             heldPollen = Math.max(0, heldPollen - 1);
         }
-        previousLoadUp = gamepad1.dpad_up;
-        previousLoadDown = gamepad1.dpad_down;
+        previousLoadUp = loadUp;
+        previousLoadDown = loadDown;
         follower.update();
         telemetry.addData("Auto revision", AUTO_REVISION);
-        telemetry.addLine("D-pad UP/DOWN: set actual starting pollen; empty robot = 0.");
+        showPreloadControls();
         telemetry.addData("Starting pollen", "%d / %d", heldPollen, POLLEN_CAPACITY);
         telemetry.addData("Start pose", startingPose());
         if (seekPollen()) {
@@ -243,6 +249,11 @@ public class PedroPollenShootAndPark extends OpMode {
         telemetry.update();
     }
 
+    private void showPreloadControls() {
+        telemetry.addLine(seekPollen() ? "D-pad UP/DOWN: adjust starting pollen."
+                : "RB adds starting pollen. LB subtracts.");
+    }
+
     @Override
     public void start() {
         follower.setPose(startingPose());
@@ -254,7 +265,7 @@ public class PedroPollenShootAndPark extends OpMode {
         visionStatus = "WAITING FOR FRAME";
         lastTargetDecision = "NONE";
         lastLockDecision = "NO LOCK ATTEMPT YET";
-        shooter.start(holdTurretDuringAuto());
+        shooter.start(holdTurretDuringAuto(), shooterTrimTicksPerSecond());
         lastPickupBall = null;
         lastPickupTime = Double.NEGATIVE_INFINITY;
         Command[] shootingSteps = seekPollen()

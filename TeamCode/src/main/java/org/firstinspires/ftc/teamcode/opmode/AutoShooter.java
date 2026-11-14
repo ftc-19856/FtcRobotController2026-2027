@@ -22,7 +22,8 @@ final class AutoShooter {
     private final ShooterVelocity shooter;
     private final DcMotorEx flywheel;
     private final TuningFlywheelControl tuningControl;
-    private final double tunedTarget;
+    private final double baseTarget;
+    private double tunedTarget;
     private final ElapsedTime speedTimer = new ElapsedTime();
     private boolean spinning;
     private final DcMotor turret;
@@ -31,8 +32,9 @@ final class AutoShooter {
     AutoShooter(HardwareMap hardwareMap, double tunedSpeedTicksPerSecond) {
         flywheel = hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR);
         double reduction = RobotConfig.PEDRO_SHOOTER_REDUCTION_PERCENT / 100.0;
-        tunedTarget = Math.max(0, tunedSpeedTicksPerSecond
+        baseTarget = Math.max(0, tunedSpeedTicksPerSecond
                 - reduction * TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND);
+        tunedTarget = baseTarget;
         if (tunedSpeedTicksPerSecond > 0) {
             shooter = null;
             tuningControl = new TuningFlywheelControl(TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND);
@@ -50,8 +52,12 @@ final class AutoShooter {
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
 
+    double baseTarget() { return baseTarget; }
+
     /** Call at START: nothing moves during INIT. */
-    void start(boolean holdTurret) {
+    void start(boolean holdTurret, double trimTicksPerSecond) {
+        tunedTarget = Math.max(0, Math.min(TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND,
+                baseTarget + trimTicksPerSecond));
         if (holdTurret) {
             turret.setTargetPosition(turret.getCurrentPosition());
             turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
