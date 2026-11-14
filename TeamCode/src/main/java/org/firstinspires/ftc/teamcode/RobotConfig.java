@@ -8,6 +8,7 @@ public final class RobotConfig {
     public static final String BACK_RIGHT_MOTOR = "backRightMotor";
     public static final String INTAKE_MOTOR = "intake";
     public static final String SHOOTER_MOTOR = "shooter";
+    public static final int PEDRO_SHOOTER_REDUCTION_PERCENT = 3;
     public static final String TURRET_MOTOR = "turret";
     // Device type is being confirmed; the intake autonomous does not map the hood.
     public static final String HOOD = "hood";

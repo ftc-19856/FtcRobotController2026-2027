@@ -30,8 +30,10 @@ final class AutoShooter {
 
     AutoShooter(HardwareMap hardwareMap, double tunedSpeedTicksPerSecond) {
         flywheel = hardwareMap.get(DcMotorEx.class, RobotConfig.SHOOTER_MOTOR);
-        tunedTarget = tunedSpeedTicksPerSecond;
-        if (tunedTarget > 0) {
+        double reduction = RobotConfig.PEDRO_SHOOTER_REDUCTION_PERCENT / 100.0;
+        tunedTarget = Math.max(0, tunedSpeedTicksPerSecond
+                - reduction * TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND);
+        if (tunedSpeedTicksPerSecond > 0) {
             shooter = null;
             tuningControl = new TuningFlywheelControl(TuningFlywheelControl.FULL_SPEED_TICKS_PER_SECOND);
             flywheel.setPower(0);
@@ -39,7 +41,7 @@ final class AutoShooter {
             flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         } else {
-            shooter = new ShooterVelocity(flywheel);
+            shooter = new ShooterVelocity(flywheel, reduction);
             tuningControl = null;
         }
         turret = hardwareMap.get(DcMotor.class, RobotConfig.TURRET_MOTOR);

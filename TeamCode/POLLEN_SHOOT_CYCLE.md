@@ -18,10 +18,10 @@ the shot.
 
 The fixed turret must be aimed at the hive at the shooting pose. Red starts at
 (8.8061, 32.1239, 90 Pedro degrees) and shoots at (53, 20, 90 Pedro degrees)
-at 59% (1,357 ticks/s).
+at 56% (1,288 ticks/s).
 Blue starts at (132, 109, 270 Pedro
 degrees), then drives to (87, 120, 270 Pedro degrees) to shoot the preloads
-at 59% (1,357 ticks/s).
+at 56% (1,288 ticks/s).
 Both alliance autos wait for the drive and heading to settle before shooting.
 Blue leaves the turret motor at zero power in RUN_WITHOUT_ENCODER with BRAKE;
 it does not actively hold, aim, or rotate the turret, including while shooting.

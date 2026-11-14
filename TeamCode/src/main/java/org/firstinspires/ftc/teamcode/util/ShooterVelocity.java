@@ -20,6 +20,7 @@ public final class ShooterVelocity {
 
     private final DcMotorEx motor;
     private final double maximumTicksPerSecond;
+    private final double speedReduction;
     private boolean enabled;
     private double target;
     private double appliedP = Double.NaN;
@@ -29,7 +30,12 @@ public final class ShooterVelocity {
     private boolean settingsValid = true;
 
     public ShooterVelocity(DcMotorEx motor) {
+        this(motor, 0);
+    }
+
+    public ShooterVelocity(DcMotorEx motor, double speedReduction) {
         this.motor = motor;
+        this.speedReduction = speedReduction;
         motor.setPower(0);
         motor.setDirection(DcMotorSimple.Direction.FORWARD);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
@@ -68,7 +74,7 @@ public final class ShooterVelocity {
         settingsValid = Double.isFinite(p) && p >= 0 && Double.isFinite(i) && i >= 0
                 && Double.isFinite(d) && d >= 0 && Double.isFinite(f) && f >= 0
                 && Double.isFinite(fraction) && fraction >= 0 && fraction <= 1;
-        if (!enabled || !settingsValid || fraction == 0) {
+        if (!enabled || !settingsValid || fraction <= speedReduction) {
             target = 0;
             // Power zero preserves FLOAT spin-down rather than actively regulating zero velocity.
             motor.setPower(0);
@@ -82,7 +88,7 @@ public final class ShooterVelocity {
             appliedF = f;
         }
         // Negative matches the previously working shooter.setPower(-1).
-        target = -Math.min(maximumTicksPerSecond * fraction, 32767);
+        target = -Math.min(maximumTicksPerSecond * (fraction - speedReduction), 32767);
         motor.setVelocity(target);
     }
 

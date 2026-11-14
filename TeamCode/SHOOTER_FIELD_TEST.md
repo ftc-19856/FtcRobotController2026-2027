@@ -14,8 +14,9 @@ center the sticks, and wait for the turret and flywheel readings to settle.
 
 - Between trials, **D-pad up/down** changes the shooter speed command by five
   percentage points and **left/right** changes it by one. The starting command
-  is 65% of `FULL_SPEED_TICKS_PER_SECOND`, which starts at 2300 based on the
-  logged flywheel readings. The tuning OpMode controls velocity using the
+  is 62% after the shared three-point reduction, with a maximum of 97%.
+  Percentages use `FULL_SPEED_TICKS_PER_SECOND` (2,300 ticks/s by default).
+  The tuning OpMode controls velocity using the
   encoder speed magnitude. Compare the target and actual ticks/s on telemetry.
 - Load four pollen. Hold **RB** to record, **LB** to open the blocker, and
   **Right Trigger** to run the intake and transfer. After the fourth shot,

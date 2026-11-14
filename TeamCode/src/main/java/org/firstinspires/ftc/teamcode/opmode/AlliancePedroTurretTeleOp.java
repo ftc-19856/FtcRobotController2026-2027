@@ -135,7 +135,8 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
         previousSpeedButtons.copy(gamepad1);
         Pose origin = aimOrigin(pose);
         double distance = hasFieldPose() ? Math.hypot(hiveX() - origin.x(), hiveY() - origin.y()) : Double.NaN;
-        double baseSpeed = TuningFlywheelControl.speedForDistance(distance);
+        double baseSpeed = TuningFlywheelControl.speedForDistance(distance)
+                - FULL_SPEED_TICKS_PER_SECOND * RobotConfig.PEDRO_SHOOTER_REDUCTION_PERCENT / 100.0;
         // Limit trim to ±20 percentage points so the running shooter keeps a positive target.
         double maxTrim = 0.20 * FULL_SPEED_TICKS_PER_SECOND;
         speedTrim = Math.max(-maxTrim, Math.min(maxTrim,

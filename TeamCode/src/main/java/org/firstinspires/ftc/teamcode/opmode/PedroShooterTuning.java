@@ -67,7 +67,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
         pivotLeft = PIVOT_LEFT_IN;
         super.start();
         previous.copy(gamepad1);
-        speedPercent = Math.max(1, Math.min(100, START_SPEED_PERCENT));
+        speedPercent = Math.max(1, Math.min(100, START_SPEED_PERCENT)
+                - RobotConfig.PEDRO_SHOOTER_REDUCTION_PERCENT);
         fullSpeed = FULL_SPEED_TICKS_PER_SECOND;
         if (!Double.isFinite(fullSpeed) || fullSpeed <= 0) fullSpeed = 2300;
         flywheelControl = new TuningFlywheelControl(fullSpeed);
@@ -95,7 +96,8 @@ public final class PedroShooterTuning extends PedroHiveTurretAim {
                     - (gamepad1.dpad_down && !previous.dpad_down ? 5 : 0)
                     + (gamepad1.dpad_right && !previous.dpad_right ? 1 : 0)
                     - (gamepad1.dpad_left && !previous.dpad_left ? 1 : 0);
-            speedPercent = Math.max(1, Math.min(100, speedPercent + change));
+            speedPercent = Math.max(1, Math.min(100 - RobotConfig.PEDRO_SHOOTER_REDUCTION_PERCENT,
+                    speedPercent + change));
         }
         double now = getRuntime();
         double targetSpeed = fullSpeed * (speedPercent / 100.0);
