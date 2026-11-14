@@ -23,6 +23,8 @@ public class PedroHiveTurretAim extends OpMode {
     protected static final double HIVE_Y = 83;
     private static final double CALIBRATION_ANGLE_DEGREES = -45;
     private static final double TURRET_POWER = 0.15;
+    private static final double MAX_TURRET_DEGREES = 90;
+    private static final String HIVE_OUT_OF_RANGE = "Hive outside turret range. Turn robot to aim.";
 
     // Encoder change per degree of counterclockwise turret rotation, including gearing.
     // Measured in INIT: 238 straight ahead, -139 at 90 degrees clockwise.
@@ -35,6 +37,7 @@ public class PedroHiveTurretAim extends OpMode {
     private int forwardTicks;
     private double ticksPerDegree;
     private double targetDegrees;
+    private boolean atTravelLimit;
     private boolean poseInitialized;
     private String poseStartStatus;
     private Integer calibrationForwardTicks;
@@ -94,6 +97,7 @@ public class PedroHiveTurretAim extends OpMode {
         forwardTicks = turret.getCurrentPosition();
         ticksPerDegree = TURRET_TICKS_PER_DEGREE;
         targetDegrees = 0;
+        atTravelLimit = false;
         poseInitialized = true;
         if (!Double.isFinite(ticksPerDegree) || ticksPerDegree == 0) return;
         turret.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -115,7 +119,9 @@ public class PedroHiveTurretAim extends OpMode {
         } else {
             status = aim(pose);
         }
-        if (!status.equals("Tracking")) turret.setPower(0);
+        if (!status.equals("Tracking") && !status.equals(HIVE_OUT_OF_RANGE)) {
+            turret.setPower(0);
+        }
         drive.driveRobotCentric(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x);
         telemetry.addData("Aim", status);
         telemetry.addData("Robot X / Y / heading (deg)", "%.1f / %.1f / %.1f",
@@ -125,6 +131,14 @@ public class PedroHiveTurretAim extends OpMode {
         telemetry.addData("Turret ticks per CCW degree", "%.4f", ticksPerDegree);
         int encoderTicks = turret.getCurrentPosition();
         telemetry.addData("Turret encoder ticks", encoderTicks);
+        telemetry.addData("Turret limits (deg from center)", "CW %.0f / CCW %.0f",
+                MAX_TURRET_DEGREES, MAX_TURRET_DEGREES);
+        if (poseInitialized && Double.isFinite(ticksPerDegree) && ticksPerDegree != 0) {
+            double angle = (encoderTicks - (double) forwardTicks) / ticksPerDegree;
+            double limit = Math.floor(MAX_TURRET_DEGREES * Math.abs(ticksPerDegree)) / Math.abs(ticksPerDegree);
+            telemetry.addData("Turret travel left (deg)", "CW %.1f / CCW %.1f",
+                    Math.max(0, limit + angle), Math.max(0, limit - angle));
+        }
         if (status.equals("Tracking")) {
             afterAimUpdate(pose, targetDegrees, (encoderTicks - (double) forwardTicks) / ticksPerDegree);
         } else {
@@ -169,20 +183,29 @@ public class PedroHiveTurretAim extends OpMode {
 
         int currentTicks = turret.getCurrentPosition();
         double currentDegrees = (currentTicks - (double) forwardTicks) / ticksPerDegree;
-        // Unwrap the requested bearing using the previous target, independent of encoder lag.
-        double nextTargetDegrees = targetDegrees + Math.IEEEremainder(requestedDegrees - targetDegrees, 360);
-        double requestedTicks = forwardTicks + nextTargetDegrees * ticksPerDegree;
+        double bearing = Math.IEEEremainder(requestedDegrees, 360);
+        boolean outsideRange = Math.abs(bearing) > MAX_TURRET_DEGREES;
+        // Stay on the same stop if an out-of-range bearing crosses the rear of the robot.
+        double nextTargetDegrees = outsideRange
+                ? Math.copySign(MAX_TURRET_DEGREES, atTravelLimit ? targetDegrees : bearing) : bearing;
+        double requestedTicks = forwardTicks + limitedTickOffset(nextTargetDegrees, ticksPerDegree);
         if (!Double.isFinite(requestedTicks) || requestedTicks < Integer.MIN_VALUE
                 || requestedTicks > Integer.MAX_VALUE) {
             return "Invalid turret target";
         }
         targetDegrees = nextTargetDegrees;
+        atTravelLimit = outsideRange;
         int targetTicks = (int) Math.round(requestedTicks);
         turret.setTargetPosition(targetTicks);
         turret.setPower(TURRET_POWER);
         telemetry.addData("Turret target / actual (deg)", "%.1f / %.1f", targetDegrees, currentDegrees);
         telemetry.addData("Turret target ticks", targetTicks);
-        return "Tracking";
+        return outsideRange ? HIVE_OUT_OF_RANGE : "Tracking";
+    }
+
+    static double limitedTickOffset(double degrees, double ticksPerDegree) {
+        double maxTicks = Math.floor(MAX_TURRET_DEGREES * Math.abs(ticksPerDegree));
+        return Math.max(-maxTicks, Math.min(maxTicks, Math.round(degrees * ticksPerDegree)));
     }
 
     @Override
