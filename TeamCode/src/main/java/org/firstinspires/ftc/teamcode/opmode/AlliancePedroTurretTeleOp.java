@@ -27,7 +27,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     private DcMotorEx flywheel;
     private Servo blocker;
     private Toggle intakeToggle;
-    private Toggle turretAimToggle;
+    private Toggle shootingToggle;
     private Toggle secondHive;
     private TuningFlywheelControl flywheelControl;
     private double previousSpeedUpdate;
@@ -89,7 +89,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     public void start() {
         super.start();
         intakeToggle = new Toggle(false, gamepad1.x);
-        turretAimToggle = new Toggle(false, gamepad1.y);
+        shootingToggle = new Toggle(false, gamepad1.y);
         secondHive = new Toggle(false, gamepad1.b);
         flywheelControl = new TuningFlywheelControl(FULL_SPEED_TICKS_PER_SECOND);
         previousSpeedUpdate = getRuntime();
@@ -102,12 +102,12 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
     @Override
     public void loop() {
         secondHive.update(gamepad1.b);
-        turretAimToggle.update(gamepad1.y);
+        shootingToggle.update(gamepad1.y);
         super.loop();
     }
 
     @Override
-    protected boolean turretAimEnabled() { return turretAimToggle != null && turretAimToggle.get(); }
+    protected boolean turretAimEnabled() { return shootingToggle != null && shootingToggle.get(); }
 
     @Override
     protected final double hiveX() { return targetX; }
@@ -140,7 +140,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
         double maxTrim = 0.20 * FULL_SPEED_TICKS_PER_SECOND;
         speedTrim = Math.max(-maxTrim, Math.min(maxTrim,
                 speedTrim + FULL_SPEED_TICKS_PER_SECOND * speedChangePercent / 100.0));
-        double targetSpeed = baseSpeed + speedTrim;
+        double targetSpeed = shootingToggle.get() ? baseSpeed + speedTrim : 0;
         double encoderSpeed = flywheel.getVelocity();
         double now = getRuntime();
         flywheel.setPower(-flywheelControl.power(targetSpeed, encoderSpeed, now - previousSpeedUpdate));
@@ -153,7 +153,7 @@ abstract class AlliancePedroTurretTeleOp extends PedroHiveTurretAim {
         telemetry.addData("Shooter base / trim (ticks/s)", "%.0f / %+.0f", baseSpeed, speedTrim);
         telemetry.addData("Intake", gamepad1.left_bumper ? "Reverse" : (intakeToggle.get() ? "On" : "Off"));
         telemetry.addLine("X intake | Hold LB reverse | Hold A blocker open");
-        telemetry.addLine("Y toggle turret aim | B switch hive");
+        telemetry.addLine("Y toggle shooter and turret aim | B switch hive");
         telemetry.addLine("D-pad up/down: shooter trim +/-5 points. Left/right: +/-1 point.");
     }
 
