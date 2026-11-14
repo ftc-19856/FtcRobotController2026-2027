@@ -18,12 +18,18 @@ public final class AlliancePathAutoTest {
         AllianceAutonomousPaths route = new RedAlliancePaths();
         assertPose(route.start, 8.8061, 32.1239, 90);
         assertPose(route.path1().get(0), 8.8061, 32.1239, 90);
-        assertPose(route.path1().get(1), 53.7261, 32.1083, 90);
-        assertPose(route.path2().get(0), 53.7261, 32.1083, 90);
-        assertPose(route.path2().get(0.5), 19.040125, 62.4405, 90);
-        assertPose(route.path2().get(1), 9.5244, 117.7155, 90);
-        assertPose(new RedShootLeavePark().shootingTargetPose(), 53.7261, 32.1083, 90);
-        assertConstantHeading(route.path2(), 90);
+        assertPose(route.path1().get(1), 53, 20, 90);
+        assertPose(route.path2().get(0), 53, 20, 90);
+        assertEquals(13.3290125, route.path2().get(0.5).x(), 1e-6);
+        assertEquals(57.8076, route.path2().get(0.5).y(), 1e-6);
+        assertPose(route.path2().get(1), 11.3177, 96.0856, 95.8081);
+        assertPose(new RedShootLeavePark().shootingTargetPose(), 53, 20, 90);
+        assertConstantHeading(route.path1(), 90);
+        for (int i = 0; i <= 1000; i++) {
+            Pose sample = route.path2().get(i / 1000.0);
+            double halfWidth = 9 * (Math.abs(Math.cos(sample.heading())) + Math.abs(Math.sin(sample.heading())));
+            assertTrue("Red parking curve clears the left wall", sample.x() - halfWidth > 1.4);
+        }
     }
 
     @Test public void blueUsesTheCubicParkingCurveAndExportedHeading() {
